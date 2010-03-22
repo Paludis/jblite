@@ -5,22 +5,21 @@ from jbparse import kanjidic2
 
 def drop_kanji_tables(cur):
     tables = (
-        "kanji_misc",
-        "kanji_codepoints",
-        "kanji_radicals",
-        "kanji_variants",
-        "kanji_dictcodes",
-        "kanji_radical_names",
-        "kanji_nanori",
-        "kanji_misstrokes",
-        "kanji_querycodes",
-        "kanji_senses",
-        "kanji_readings",
-        "kanji_meanings",
+        "misc",
+        "codepoints",
+        "radicals",
+        "variants",
+        "dict_codes",
+        "radical_names",
+        "nanori",
+        "misstrokes",
+        "query_codes",
+        "senses",
+        "readings",
+        "meanings",
         )
     for tbl in tables:
         cur.execute("DROP TABLE IF EXISTS %s" % tbl)
-    cur.execute("DROP INDEX IF EXISTS kanji_senses_by_literal")
 
 def create_kanji_tables(cur):
     """Creates tables for storing kanji information.
@@ -33,52 +32,51 @@ def create_kanji_tables(cur):
     """
     drop_kanji_tables(cur)
     cur.execute(
-        "CREATE TABLE kanji_misc "
+        "CREATE TABLE header "
+        "(file_version TEXT, database_version TEXT, date_of_creation TEXT)")
+    cur.execute(
+        "CREATE TABLE misc "
         "(literal TEXT PRIMARY KEY,"
         " grade INTEGER, freq INTEGER, jlpt INTEGER, strokes INTEGER)")
-    for tbltype in ("codepoints", "radicals", "variants", "dictcodes"):
+    for tbltype in ("codepoints", "radicals", "variants", "dict_codes"):
         cur.execute(
-            "CREATE TABLE kanji_%s "
+            "CREATE TABLE %s "
             "(literal TEXT, seq INTEGER, type TEXT, value TEXT,"
             " PRIMARY KEY (literal, seq))" % tbltype)
     for tbltype in ("radical_names", "nanori"):
         cur.execute(
-            "CREATE TABLE kanji_%s "
+            "CREATE TABLE %s "
             "(literal TEXT, seq INTEGER, value TEXT,"
             " PRIMARY KEY (literal, seq))" % tbltype)
     cur.execute(
-        "CREATE TABLE kanji_stroke_miscounts "
+        "CREATE TABLE stroke_miscounts "
         "(literal TEXT, seq INTEGER, strokes INTEGER,"
         " PRIMARY KEY (literal, seq))")
     cur.execute(
-        "CREATE TABLE kanji_querycodes "
+        "CREATE TABLE query_codes "
         "(literal TEXT, seq INTEGER, type TEXT, value TEXT,"
         " skip_misclass TEXT, PRIMARY KEY (literal, seq))")
     cur.execute(
-        "CREATE TABLE kanji_readings "
+        "CREATE TABLE readings "
         "(literal TEXT, sense INTEGER, seq INTEGER, type TEXT, value TEXT,"
         " on_type TEXT, status TEXT, PRIMARY KEY (literal, sense, seq))")
     cur.execute(
-        "CREATE TABLE kanji_meanings "
+        "CREATE TABLE meanings "
         "(literal TEXT, sense INTEGER, seq INTEGER, lang TEXT, value TEXT,"
         " PRIMARY KEY (literal, sense, seq))")
 
-def create_word_tables(cur):
-    """Creates tables for storing word information.
-
-    If tables already exist, they will be silently dropped beforehand.
-
-    """
-    # JMDict parser rewrite is not yet complete, so this does nothing.
-    pass
-
-def create_tables(cur):
-    create_kanji_tables(cur)
-    create_word_tables(cur)
-
 def get_data(kd2_fname):
     kd2parser = kanjidic2.Parser(kd2_fname)
-    return kd2parser.characters
+    return (kd2parser.header, kd2parser.characters)
+
+def populate_header(cur, header):
+    file_version = header.find("file_version").text
+    database_version = header.find("database_version").text
+    date = header.find("date_of_creation").text
+    cur.execute(
+        "INSERT INTO header "
+        "(file_version, database_version, date_of_creation) VALUES (?, ?, ?)",
+        (file_version, database_version, date))
 
 def populate_meanings(cur, kanji, sense, sense_id):
     meanings = sense._get_meaning_nodes()
@@ -90,7 +88,7 @@ def populate_meanings(cur, kanji, sense, sense_id):
     pairs = [(kanji.literal, sense_id, i+1, lang, gloss)
              for i, (lang, gloss) in enumerate(pairs)]
     cur.executemany(
-        "INSERT INTO kanji_meanings (literal, sense, seq, lang, value) "
+        "INSERT INTO meanings (literal, sense, seq, lang, value) "
         "VALUES (?, ?, ?, ?, ?)", pairs)
 
 def populate_readings(cur, kanji, sense, sense_id):
@@ -105,7 +103,7 @@ def populate_readings(cur, kanji, sense, sense_id):
     pairs = [(kanji.literal, sense_id, i+1, r_type, reading, on_type, status)
              for i, (r_type, reading, on_type, status) in enumerate(pairs)]
     cur.executemany(
-        "INSERT INTO kanji_readings "
+        "INSERT INTO readings "
         "(literal, sense, seq, type, value, on_type, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)", pairs)
 
@@ -121,7 +119,7 @@ def populate_senses(cur, kanji):
 def populate_stroke_miscounts(cur, kanji, miscounts):
     data = [(kanji.literal, i+1, count) for i, count in enumerate(miscounts)]
     cur.executemany(
-        "INSERT INTO kanji_stroke_miscounts (literal, seq, strokes) "
+        "INSERT INTO stroke_miscounts (literal, seq, strokes) "
         "VALUES (?, ?, ?)", data)
 
 def populate_misc(cur, kanji):
@@ -130,7 +128,7 @@ def populate_misc(cur, kanji):
     freq = kanji.get_freq()
     jlpt = kanji.get_jlpt()
     cur.execute(
-        "INSERT INTO kanji_misc (literal, grade, freq, jlpt, strokes) "
+        "INSERT INTO misc (literal, grade, freq, jlpt, strokes) "
         "VALUES (?, ?, ?, ?, ?)", (kanji.literal, grade, freq, jlpt, strokes))
     if miscounts:
         populate_stroke_miscounts(cur, kanji, miscounts)
@@ -157,21 +155,22 @@ def _populate_type_val_table(cur, kanji, table_name, node_d):
         "VALUES (?, ?, ?, ?)" % table_name, data)
 
 def populate_nanori(cur, kanji):
-    _populate_val_table(cur, kanji, "kanji_nanori", kanji._get_nanori_nodes())
+    _populate_val_table(cur, kanji, "nanori", kanji._get_nanori_nodes())
 
 def populate_radical_names(cur, kanji):
-    _populate_val_table(cur, kanji, "kanji_radical_names",
+    _populate_val_table(cur, kanji, "radical_names",
                         kanji._get_radical_name_nodes())
 
 def populate_radicals(cur, kanji):
-    _populate_type_val_table(cur, kanji, "kanji_radicals",
+    _populate_type_val_table(cur, kanji, "radicals",
                              kanji._get_radical_nodes())
 
 def populate_codepoints(cur, kanji):
-    _populate_type_val_table(cur, kanji, "kanji_codepoints",
+    _populate_type_val_table(cur, kanji, "codepoints",
                              kanji._get_codepoint_nodes())
 
-def populate_tables(cur, data):
+def populate_tables(cur, header, data):
+    populate_header(cur, header)
     for kanji in data:
         populate_senses(cur, kanji)
         populate_nanori(cur, kanji)
@@ -180,17 +179,17 @@ def populate_tables(cur, data):
         populate_radicals(cur, kanji)
         populate_radical_names(cur, kanji)
         #populate_variants(cur, kanji)
-        #populate_dictcodes(cur, kanji)
-        #populate_querycodes(cur, kanji)
+        #populate_dict_codes(cur, kanji)
+        #populate_query_codes(cur, kanji)
 
 def create_db(cur, kd2_fname):
     """Main function for creating a KANJIDIC2-based SQLite database."""
     print "Creating empty tables... "
-    create_tables(cur)
+    create_kanji_tables(cur)
     print "Loading KANJIDIC2 data... "
-    data = get_data(kd2_fname)
+    header, data = get_data(kd2_fname)
     print "Populating tables... "
-    populate_tables(cur, data)
+    populate_tables(cur, header, data)
 
 def with_db(db_fname, fn, *args, **kwargs):
     conn = sqlite3.connect(db_fname)
@@ -213,8 +212,8 @@ def until_yn(prompt):
             return False
 
 def main():
-    db_fname = sys.argv[1]
-    kd2_fname = sys.argv[2]
+    kd2_fname = sys.argv[1]
+    db_fname = sys.argv[2]
     if os.path.exists(db_fname):
         assert os.path.isfile(db_fname), "Specified path is not a file."
         overwrite = until_yn("File exists; overwrite? [y/n] ")
