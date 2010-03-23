@@ -1,5 +1,7 @@
+from __future__ import absolute_import
+
 import os
-from helpers import with_db
+from .helpers import with_db
 from jbparse import kanjidic2
 import gettext
 gettext.install("jblite")
