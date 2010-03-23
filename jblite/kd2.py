@@ -20,6 +20,8 @@ class KD2Converter(object):
         parser = kanjidic2.Parser(self.kd2_fname)
         with_db(self.db_fname, self.create_db,
                 parser.header, parser.characters)
+        if self.verbose:
+            print _("Database committed.  Conversion complete.")
 
     def create_db(self, cur, header, data):
         """Main function for creating a KANJIDIC2-based SQLite database."""
@@ -27,6 +29,8 @@ class KD2Converter(object):
         self.populate_tables(cur, header, data)
 
     def drop_tables(self, cur):
+        if self.verbose:
+            print _("Dropping existing tables... ")
         tables = (
             "header",
             "stroke_miscounts",
@@ -91,6 +95,27 @@ class KD2Converter(object):
             "CREATE TABLE meanings "
             "(literal TEXT, sense INTEGER, seq INTEGER, lang TEXT, value TEXT,"
             " PRIMARY KEY (literal, sense, seq))")
+
+    def populate_tables(self, cur, header, data):
+        if self.verbose:
+            print _("Populating tables... ")
+        self.populate_header(cur, header)
+        total_kanji = len(data)
+        for i, kanji in enumerate(data):
+            if self.verbose:
+                if i % 1000 == 0 and i != 0:
+                    print _("%d/%d kanji converted.") % (i, total_kanji)
+            self.populate_senses(cur, kanji)
+            self.populate_nanori(cur, kanji)
+            self.populate_misc(cur, kanji)
+            self.populate_codepoints(cur, kanji)
+            self.populate_radicals(cur, kanji)
+            self.populate_radical_names(cur, kanji)
+            self.populate_variants(cur, kanji)
+            self.populate_dict_codes(cur, kanji)
+            self.populate_query_codes(cur, kanji)
+        if self.verbose:
+            print _("All kanji converted.  Committing...")
 
     def populate_header(self, cur, header):
         file_version = header.find("file_version").text
@@ -192,17 +217,12 @@ class KD2Converter(object):
         self._populate_type_val_table(cur, kanji, "codepoints",
                                       kanji._get_codepoint_nodes())
 
-    def populate_tables(self, cur, header, data):
-        if self.verbose:
-            print _("Populating tables... ")
-        self.populate_header(cur, header)
-        for kanji in data:
-            self.populate_senses(cur, kanji)
-            self.populate_nanori(cur, kanji)
-            self.populate_misc(cur, kanji)
-            self.populate_codepoints(cur, kanji)
-            self.populate_radicals(cur, kanji)
-            self.populate_radical_names(cur, kanji)
-            #self.populate_variants(cur, kanji)
-            #self.populate_dict_codes(cur, kanji)
-            #self.populate_query_codes(cur, kanji)
+    def populate_variants(self, cur, kanji):
+        self._populate_type_val_table(cur, kanji, "variants",
+                                      kanji._get_variant_nodes())
+
+    def populate_dict_codes(self, cur, kanji):
+        pass
+
+    def populate_query_codes(self, cur, kanji):
+        pass
