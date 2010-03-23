@@ -1,15 +1,17 @@
 import os
 from helpers import with_db
 from jbparse import kanjidic2
+import gettext
+gettext.install("jblite")
 
 
 class KD2Converter(object):
 
     def __init__(self, kd2_fname, db_fname, verbose=False):
         if os.path.exists(db_fname):
-            assert os.path.isfile(db_fname), "Specified path is not a file."
+            assert os.path.isfile(db_fname), _("Specified path is not a file.")
             assert os.access(db_fname, os.W_OK), \
-                "Cannot write to specified file."
+                _("Cannot write to specified file.")
         self.kd2_fname = kd2_fname
         self.db_fname = db_fname
         self.verbose = verbose
@@ -54,7 +56,8 @@ class KD2Converter(object):
 
         """
         self.drop_tables(cur)
-        print "Creating empty tables... "
+        if self.verbose:
+            print _("Creating empty tables... ")
         cur.execute(
             "CREATE TABLE header "
             "(file_version TEXT, database_version TEXT, date_of_creation TEXT)")
@@ -190,7 +193,8 @@ class KD2Converter(object):
                                       kanji._get_codepoint_nodes())
 
     def populate_tables(self, cur, header, data):
-        print "Populating tables... "
+        if self.verbose:
+            print _("Populating tables... ")
         self.populate_header(cur, header)
         for kanji in data:
             self.populate_senses(cur, kanji)
