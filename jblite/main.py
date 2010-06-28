@@ -4,23 +4,32 @@
 
 import optparse
 from jblite.kd2 import KD2Converter
+from jblite.jmdict import JMdictConverter
 import gettext
 gettext.install("jblite")
 
 
 def parse_args():
-    op = optparse.OptionParser()
-    op.usage = "%prog <xml_src> <sqlite_dest>"
+    usage="usage: %prog [options] <xml_src> <sqlite_dest>"
+    op = optparse.OptionParser(usage)
     op.add_option("-v", "--verbose", action="store_true",
                   help=_("Display verbose output (default: %default)"))
-    op.set_defaults(verbose=False)
+    op.add_option("-f", "--format",
+                  help=_("Format of database file (kanjidic2, jmdict) "
+                         "(default: %default)"))
+    op.set_defaults(verbose=False,
+                    format="kanjidic2")
     return op.parse_args()
 
 def main():
     (options, args) = parse_args()
-    kd2_fname = args[0]
-    db_fname = args[1]
-    converter = KD2Converter(kd2_fname, db_fname, options.verbose)
+    src_fname, dest_fname = args[:2]
+    formats = {
+        "kanjidic2": KD2Converter,
+        "jmdict": JMdictConverter,
+        }
+    cls = formats[options.format]
+    converter = cls(src_fname, dest_fname, verbose=options.verbose)
     converter.run()
 
 if __name__ == "__main__":
