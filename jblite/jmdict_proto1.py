@@ -43,7 +43,7 @@ def main():
             for re_pri in r_ele.iterfind('re_pri'):
                 priority = re_pri.text
                 #print u"r_ele.re_pri:", priority
-        info = root.find('info')
+        info = child.find('info')
         if info is not None:
             for links in info.iterfind('links'):
                 tag = links.find('link_tag').text
@@ -107,7 +107,6 @@ def main():
                     skip_elem('pri')
             for example in sense.iterfind('example'):
                 text = example.text
-                pass
 
 if __name__ == "__main__":
     main()
