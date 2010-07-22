@@ -1,0 +1,95 @@
+entry  # Keep around just as a full listing...
+  id  # ent_seq good enough...?
+
+entry_k_ele
+k_ele_inf
+k_ele_pri
+entry_r_ele
+r_ele_restr
+r_ele_inf
+r_ele_pri
+entry_links #unused
+entry_bibl #unused
+entry_etym #unused
+entry_audit
+entry_sense
+sense_stagk
+sense_stagr
+sense_pos
+sense_xref
+sense_ant
+sense_field
+sense_misc
+sense_s_inf
+sense_dial
+sense_example
+sense_lsource
+sense_gloss
+gloss_pri  #unused
+  (id_parent
+   seq)
+  id_child
+
+k_ele  # k_ele  (id, keb => id, value)
+ke_inf
+ke_pri
+re_restr
+re_inf
+re_pri
+stagk
+stagr
+pos
+xref
+ant
+field
+misc
+s_inf
+dial
+example
+pri: UNUSED
+  id
+  value
+
+r_ele
+  id
+  value    # reb
+  nokanji  # re_nokanji (boolean)
+
+audit
+  id
+  update_date
+  update_details
+
+lsource
+  id
+  lang (default eng)
+  ls_type ("full" or "part"... full implied, part if spec'd... meaning???)
+  ls_wasei (t/f flag, "y" if true, not spec'd otherwise)
+
+gloss
+  id
+  lang (eng def)
+  g_gend (can be null) (unused)
+  value
+  pri?  (t/f: if true, use pri table)
+
+links  # UNUSED
+  id
+  tag
+  desc
+  uri
+
+bibl  # UNUSED
+  id
+  tag
+  txt
+
+etym  # UNUSED
+
+
+SUPPORT TABLES:
+
+entities:
+  id  # surrogate in case entity is ever changed
+  entity
+  value

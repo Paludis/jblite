@@ -1,0 +1,53 @@
+JMDict structure
+================
+
+JMdict
+  entry
+    ent_seq (int)  # Just use orig code; don't add autonumber
+    k_ele*
+      keb (text)
+      ke_inf* (info field: ENTITY: &ateji; &iK; &ik; &io; &oK;)
+      ke_pri* (priority: TEXT (or could make a table and ref by int to save space...))
+    r_ele+
+      reb (text)
+      re_nokanji? (empty tag: boolean t/f)
+      re_restr* (text, matches one "keb" string)
+      re_inf* (info: ENTITY: &gikun; &ik; &ok; &uK;)
+      re_pri* (see ke_pri)
+    info?
+      links*   # UNUSED
+        link_tag (???)   # UNUSED
+        link_desc (text) # UNUSED
+        link_uri (text)  # UNUSED
+      bibl*    # UNUSED
+        bib_tag? (???)   # UNUSED
+        bib_txt? (text)  # UNUSED
+      etym* (???)   # UNUSED
+      audit*
+        upd_date (text/date, always YYYY/MM/DD format datestamp)
+        upd_detl (text, "Entry amended" (x1818) or "Entry created" (x51861),
+                  could have others...)
+    sense+
+      stagk* (text, matches keb) ("sense tag k")
+      stagr* (text, matches reb)
+      pos* (text or int ref to entity code)  # check ElementTree parsing of entities
+      xref* (text w/ special format - for now, just store)   # What does (#PCDATA)* mean???
+      ant* (text, matches keb/reb)
+      field* (text or int ref to entity code)
+      misc* (text or int ref to entity code)
+      s_inf* (text)
+      lsource* (xml:lang TEXT (def "eng"),
+                ls_type (implied "full", "part" when spec'd (UNUSED) -> constant tbl?  t/f?),
+                ls_wasei (t/f flag...?) (always "y" if spec'd))
+               (text or empty str (why???))
+      dial* (entity code)
+      gloss* (xml:lang TEXT (def "eng"), g_gend (abs irrel, spec'd gives gender (UNUSED)))
+             (TEXT or pri element)
+        pri* (???)  # UNUSED
+      example* (text)  # UNUSED
+
+
+NOTES:
+- ElementTree does auto-convert entities.
+- It's possible to use ElementTree.parse(source_file, parser) to supply parser instance...
+  maybe this could used to track entities.
