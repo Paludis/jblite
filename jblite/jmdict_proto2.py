@@ -8,11 +8,8 @@ from xml.etree.cElementTree import ElementTree
 
 def get_dtd(xml_data):
     """Gets the DTD from JMdict."""
-    # This is not a perfect solution; it assumes we don't use []'s
-    # inside the DTD.
-    #
-    # It would be better to simply have a reliable way to extract the
-    # DTD from the doc, then check its entity dictionary...
+    # This works for JMdict (as it is at the time of writing), but is
+    # not a general solution.
     start_index = xml_data.find("<!DOCTYPE")
     if start_index == -1:
         raise Exception("Could not find start of internal DTD")
