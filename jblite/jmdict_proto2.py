@@ -6,67 +6,6 @@ from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 
 
-"""
-Notes about XML format:
-
-- XML document MUST be well-formed.
-
-- XML document -MAY- be valid if DTD is supplied and document complies
-  with the DTD.
-
-Well formed definition:
-
-  1. As a whole, it matches the format (or "production"):
-
-     ( prolog element Misc* ) - (Char* RestrictedChar Char* )
-
-     In English:
-
-     1. prolog portion:
-        1. <?xml ...>
-        2. Misc elements
-        3. Optionally: a doctypedecl followed by more misc elements
-     2. Single element: the root
-     3. Misc entries after
-
-     Misc entries include: comments, PI (processing instructions), S (spaces)
-
-     So:
-
-     1. <?xml ...> *will* occur first (probably comments WILL fail if
-        found before)
-     2. Other tags *may* be present after, before the DTD
-     3. The DTD *will* be included before the main document (and only
-        one is allowed)
-
-     Simply: Read until <!DOCTYPE, parse until ]>.
-
-     REMAINING question: can "]>" occur anywhere else???
-"""
-
-"""
-More format details:
-
-document
-(prolog element Misc*)
-((XMLDecl Misc* (doctypedecl Misc*)?) element Misc*)
-element: <name attr=1(...) /> OR <name attr=1(...)>...</name>
-Misc: Comments, space, or PI
-Comments: <!-- comment... -->
-PI: <?PITarget dsfjslfjslafjasljlj... ?>
-PITarget: Name excluding XML (case-insensitive)
-
-So:
-1. <?xml version = "1.1" encoding = "enc_name" standalone = "yes"|"no" ?>
-2. comments/PIs/space (multiple)
-3. <!DOCTYPE bleh (SYSTEM/PUBLIC ext_id) [intSubset] >
-    intSubset ::= markupdecl | DeclSep
-    DeclSep ::= PEReference (%bleh;) or space
-                (PEReference: Parameter-entity reference)
-
-
-"""
-
 def get_dtd(xml_data):
     """Gets the DTD from JMdict."""
     # This is not a perfect solution; it assumes we don't use []'s
