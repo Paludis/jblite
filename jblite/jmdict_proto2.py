@@ -6,6 +6,17 @@ from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 
 
+"""
+$ grep -e '&.*;' JMdict | grep -v -e '&lt;' -e '&gt;' -e '&nbsp;' -e '&amp;' | sort | uniq | grep -oe '^<[^>]*>' | uniq
+<dial>
+<field>
+<ke_inf>
+<misc>
+<pos>
+<re_inf>
+"""
+
+
 
 class Table(object):
 
