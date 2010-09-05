@@ -60,7 +60,11 @@ entity: id, ent_seq
     r_ele_pri: id, fk, value
 ...etc, for all tables.
 
+sense: id, fk
 
+Other tables: pretty much as we planned, but add the fk in, and make
+the primary key an auto-increment.  Will leave us with fewer tables
+and may reduce size slightly.
 
 
 ---------------

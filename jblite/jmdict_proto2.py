@@ -29,6 +29,7 @@ class Database(object):
         other_tables = {
             "entry": EntryTable,     # key->int ID
             "r_ele": REleTable,      # key-value plus nokanji flag
+            "sense": SenseTable,     # one-many group mapping for sense info
             "audit": AuditTable,     # key->(update_date, update_details)
             "lsource": LSourceTable, # key -> lang, type=full/part, wasei=t/f
             "gloss": GlossTable,     # key -> lang, g_gend, value, pri flag
@@ -39,20 +40,20 @@ class Database(object):
             }
         kv_tables = [ # key-value tables (id -> text blob)
             "k_ele",
-            "ke_pri",
-            "re_restr",
-            "re_pri",
+            "k_ele_pri",
+            "r_ele_restr",
+            "r_ele_pri",
             "stagk",
             "stagr",
-            "xref",
-            "ant",
+            "xref",  # (#PCDATA)* - why the *?
+            "ant",   # (#PCDATA)* - why the *?
             "s_inf",
             "example",
             "pri",
             ]
         kv_entity_tables = [ # key-value tables where val == entity
-            "ke_inf",
-            "re_inf",
+            "k_ele_inf",
+            "r_ele_inf",
             "dial",
             "field",
             "misc",
@@ -208,6 +209,15 @@ class REleTable(Table):
                     "(id INTEGER PRIMARY KEY, fk INTEGER,"
                     " value TEXT, nokanji INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
+
+
+class SenseTable(Table):
+    """Corresponds to <sense> tag.  Functions as group for glosses, etc."""
+    create_query = ("CREATE TABLE %s (id INTEGER PRIMARY KEY, fk INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?)"
     index_queries = [
         "CREATE INDEX %s_fk ON %s (fk)",
         ]
