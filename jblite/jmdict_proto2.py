@@ -14,15 +14,6 @@ gettext.install("jblite")
 
 
 
-"""
-$ grep -e '&.*;' JMdict | grep -v -e '&lt;' -e '&gt;' -e '&nbsp;' -e '&amp;' | sort | uniq | grep -oe '^<[^>]*>' | uniq
-<dial>
-<field>
-<ke_inf>
-<misc>
-<pos>
-<re_inf>
-"""
 
 
 
@@ -32,10 +23,71 @@ class Database(object):
         self.conn = sqlite3.connect(filename)
         self.cur = self.conn.cursor()
         if init_from_file is not None:
+            self._reset_database()
             self._init_from_file(init_from_file)
 
     def search(self, query, pref_lang=None):
         raise NotImplementedError()
+
+    def _reset_database(self):
+        other_tables = [
+            "entry",  # key->int ID
+            "r_ele",  # key-value plus nokanji flag
+            "audit",  # key->(update_date, update_details)
+            "lsource", # key -> lang, type=full/part, wasei=t/f
+            "gloss", # key -> lang, g_gend, value, pri flag
+            "links", # key -> tag, desc, uri
+            "bibl", # key -> tag, txt
+            #"etym", # not used yet
+            "entities": "",  # Info from JMdict XML entities (str->long str)
+            ]
+        pc_tables = [  # parent-child tables (parent_id, seq, child_id)
+            "entry_k_ele",
+            "k_ele_inf",
+            "k_ele_pri",
+            "entry_r_ele",
+            "r_ele_restr",
+            "r_ele_inf",
+            "r_ele_pri",
+            "entry_links",
+            "entry_bibl",
+            "entry_etym",
+            "entry_audit",
+            "entry_sense",
+            "sense_stagk",
+            "sense_stagr",
+            "sense_pos",
+            "sense_xref",
+            "sense_ant",
+            "sense_field",
+            "sense_misc",
+            "sense_s_inf",
+            "sense_dial",
+            "sense_example",
+            "sense_lsource",
+            "sense_gloss",
+            "gloss_pri",
+            }
+        kv_tables = [ # key-value tables (id -> text blob)
+            "k_ele",
+            "ke_inf",
+            "ke_pri",
+            "re_restr",
+            "re_inf",
+            "re_pri",
+            "stagk",
+            "stagr",
+            "pos",
+            "xref",
+            "ant",
+            "field",
+            "misc",
+            "s_inf",
+            "dial",
+            "example",
+            "pri",
+            ]
+        self.cur()
 
     def _init_from_file(self, jmdict_src):
         raw_data = gzread(jmdict_src)
@@ -184,14 +236,22 @@ class AutoIncrementTable(Table):
 class EntityRefTable(AutoIncrementTable):
     # Used for: ke_inf, re_inf, dial, 3 others...
     table_name = None
-    # i = auto-inc, fk = foreign key, entity = value
-    create_query = "CREATE TABLE %s (i INTEGER, fk INTEGER, entity INTEGER)"
-    insert_query = "INSERT INTO %s VALUES (?, ?, ?)"
-    index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
-        ]
+    # i = auto-inc, entity = value
+    create_query = "CREATE TABLE %s (i INTEGER, entity INTEGER)"
+    insert_query = "INSERT INTO %s VALUES (?, ?)"
 
 # ----- Real tables follow -----
+
+# ENTITY TABLES
+# =============
+#$ grep -e '&.*;' JMdict | grep -v -e '&lt;' -e '&gt;' -e '&nbsp;' -e '&amp;' | sort | uniq | grep -oe '^<[^>]*>' | uniq
+#<dial>
+#<field>
+#<ke_inf>
+#<misc>
+#<pos>
+#<re_inf>
+
 
 class KeInfTable(EntityRefTable):
     table_name = "ke_inf"
@@ -199,6 +259,12 @@ class ReInfTable(EntityRefTable):
     table_name = "re_inf"
 class DialectTable(EntityRefTable):
     table_name = "dial"
+class FieldTable(EntityRefTable):
+    table_name = "field"
+class MiscTable(EntityRefTable):
+    table_name = "misc"
+class PositionTable(EntityRefTable):
+    table_name = "pos"
 
 
 class EntityTable(AutoIncrementTable):
