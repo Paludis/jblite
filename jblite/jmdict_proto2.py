@@ -13,10 +13,6 @@ gettext.install("jblite")
 
 
 
-
-
-
-
 class Database(object):
 
     def __init__(self, filename, init_from_file=None):
@@ -129,21 +125,6 @@ class Database(object):
             if i >= 10:
                 break
             print(i, elem)
-
-
-
-"""
-Creating entries:
-
-1. Need objects from DB
-2. Need to parse XML and:
-   1. Directly create DB
-   2. Create entry objects, and create DB from them.
-      - Strength: allows opportunity for modifying database in the future.
-      - Weakness: Need two ways to create objects: from DB and from
-        SQL.  This complicates things...
-
-"""
 
 
 class Table(object):
