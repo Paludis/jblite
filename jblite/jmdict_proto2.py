@@ -19,6 +19,7 @@ class Database(object):
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
         self.cursor = self.conn.cursor()
+        self.tables = self._create_tables()
         if init_from_file is not None:
             raw_data = gzread(init_from_file)
 
@@ -27,20 +28,19 @@ class Database(object):
             etree = ElementTree(file=infile)
             infile.close()
 
-            table_d = self._create_new_tables()
-
-            self._populate_database(table_d, etree, entities)
+            self._create_new_tables()
+            self._populate_database(etree, entities)
 
     def search(self, query, pref_lang=None):
         raise NotImplementedError()
 
-    def _create_new_tables(self):
-        """(Re)creates the database tables.
+    def _create_tables(self):
+        """Creates table objects.
 
-        Returns a dictionary mapping table names to table objects.
+        Returns a dictionary of table name to table object.
 
         """
-        other_tables = {
+        class_mappings = {
             "entry": EntryTable,     # key->int ID
             "r_ele": REleTable,      # key-value plus nokanji flag
             "sense": SenseTable,     # one-many group mapping for sense info
@@ -52,6 +52,8 @@ class Database(object):
             #"etym", # not used yet
             "entities": EntityTable,  # Info from JMdict XML entities
             }
+
+        # Set up key/value and key/entity tables
         kv_tables = [ # key-value tables (id -> text blob)
             "k_ele",
             "ke_pri",
@@ -73,14 +75,6 @@ class Database(object):
             "misc",
             "pos",
             ]
-
-        # Drop any existing tables
-        all_tables = other_tables.keys() + kv_tables + kv_entity_tables
-        for tbl in all_tables:
-            self.cursor.execute("DROP TABLE IF EXISTS %s" % tbl)
-
-        # Create mappings of table name to class
-        class_mappings = other_tables
         for tbl in kv_tables:
             class_mappings[tbl] = KeyValueTable
         for tbl in kv_entity_tables:
@@ -91,13 +85,15 @@ class Database(object):
         for tbl, cls in class_mappings.iteritems():
             table_mappings[tbl] = cls(self.cursor, tbl)
 
-        # Create all tables in DB
-        for tbl_obj in table_mappings.itervalues():
-            tbl_obj.create()
-
         return table_mappings
 
-    def _populate_database(self, table_d, etree, entities):
+    def _create_new_tables(self):
+        """(Re)creates the database tables."""
+        for tbl, tbl_obj in self.tables.iteritems():
+            self.cursor.execute("DROP TABLE IF EXISTS %s" % tbl)
+            tbl_obj.create()
+
+    def _populate_database(self, etree, entities):
         """Imports XML data into SQLite database.
 
         table_d: table to table_object dictionary
@@ -108,16 +104,20 @@ class Database(object):
         # Populate entities table and get integer keys
         # NOTE: we'll be mapping from *expanded* entities to ints.
         entity_int = {}
-        tbl = table_d['entities']
+        tbl = self.tables['entities']
         for entity, expansion in entities.iteritems():
             i = tbl.insert(entity, expansion)
             entity_int[expansion] = i
-            print(entity, i)
 
-        # TO DO
-
-        # Finalize
         self.conn.commit()
+
+        # Iterate through each entry
+        for i, elem in enumerate(etree.getiterator("entry")):
+            if i >= 10:
+                break
+            print(i, elem)
+
+            self.conn.commit()
 
     def _get_entities(self, xml_data):
         """Gets the ENTITY definitions from JMdict.
@@ -148,12 +148,6 @@ class Database(object):
         dtd = xml_data[start_index:end_index]
         return dtd
 
-    def _process_etree(self, etree, entities):
-        for i, elem in enumerate(etree.getiterator("entry")):
-            if i >= 10:
-                break
-            print(i, elem)
-
 
 class Table(object):
 
@@ -162,6 +156,14 @@ class Table(object):
     # These queries must be specified in child classes.
     create_query = None
     insert_query = None
+
+    # Index queries are not required.  If specified, they are assumed
+    # to take the format:
+    #
+    #   CREATE INDEX %s_XXX ON %s (YYY)",
+    #
+    # where %s is a placeholder for the table name, and XXX/YYY are
+    # replaced as desired.
     index_queries = []
 
     def __init__(self, cursor, table_name):
