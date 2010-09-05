@@ -162,14 +162,10 @@ class Table(object):
 
     def create(self):
         """Creates table, plus indices if supplied in class definition."""
-        print("CREATING:", self.table_name)
-        print(self._get_create_query())
         self.cursor.execute(self._get_create_query())
         index_queries = self._get_index_queries()
         for query in index_queries:
-            print(query)
             self.cursor.execute(query)
-        print()
 
     def insert(self, *args):
         self.cursor.execute(self._get_insert_query(), args)
@@ -194,7 +190,10 @@ class Table(object):
           or (len(self.index_queries) == 0)):
             return []
         else:
-            queries = [q % self.table_name for q in self.index_queries]
+            # Each query needs to have the table name merged in two
+            # places.
+            queries = [q % (self.table_name, self.table_name)
+                       for q in self.index_queries]
             return queries
 
 
@@ -203,7 +202,7 @@ class EntryTable(Table):
                     "(id INTEGER PRIMARY KEY, ent_seq INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?)"
     index_queries = [
-        "CREATE INDEX seq_index ON %s (ent_seq)",
+        "CREATE INDEX %s_seq ON %s (ent_seq)",
         ]
 
 
@@ -213,7 +212,7 @@ class KeyValueTable(Table):
                     "(id INTEGER PRIMARY KEY, fk INTEGER, value TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -229,7 +228,7 @@ class REleTable(Table):
                     " value TEXT, nokanji INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -239,7 +238,7 @@ class AuditTable(Table):
                     " update_date TEXT, update_details TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -255,7 +254,7 @@ class LSourceTable(Table):
                     " lang TEXT, partial INTEGER, wasei INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -265,9 +264,9 @@ class GlossTable(Table):
                     " lang TEXT, g_gend TEXT, value TEXT, pri INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
-        "CREATE INDEX lang_index ON %s (lang)",
-        "CREATE INDEX value_index ON %s (value)",
+        "CREATE INDEX %s_fk ON %s (fk)",
+        "CREATE INDEX %s_lang ON %s (lang)",
+        "CREATE INDEX %s_value ON %s (value)",
         ]
 
 
@@ -277,7 +276,7 @@ class LinksTable(Table):
                     " tag TEXT, desc TEXT, uri TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -287,7 +286,7 @@ class BiblTable(Table):
                     " tag TEXT, txt TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
     index_queries = [
-        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -297,7 +296,7 @@ class EntityTable(Table):
                     "(id INTEGER PRIMARY KEY, entity TEXT, expansion TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
     index_queries = [
-        "CREATE INDEX entity_index ON %s (entity)",
+        "CREATE INDEX %s_entity ON %s (entity)",
         ]
 
 
