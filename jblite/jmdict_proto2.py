@@ -112,10 +112,56 @@ class Database(object):
         self.conn.commit()
 
         # Iterate through each entry
-        for i, elem in enumerate(etree.getiterator("entry")):
+        for i, entry in enumerate(etree.findall("entry")):
             if i >= 10:
                 break
-            print(i, elem)
+
+            # entry table
+            ent_seq = entry.find("ent_seq")
+            entry_id = self.tables["entry"].insert(int(ent_seq.text))
+
+            for k_ele in entry.findall("k_ele"):
+                # k_ele
+                value = k_ele.find("keb").text
+                k_ele_id = self.tables["k_ele"].insert(entry_id, value)
+
+                # ke_inf
+                for ke_inf in k_ele.findall("ke_inf"):
+                    value = ke_inf.text
+                    entity_id = entity_int[value]
+                    self.tables["ke_inf"].insert(k_ele_id, entity_id)
+
+                # ke_pri
+                for ke_pri in k_ele.findall("ke_pri"):
+                    value = ke_pri.text
+                    self.tables["ke_pri"].insert(k_ele_id, value)
+
+            for r_ele in entry.findall("r_ele"):
+                # r_ele
+                value = r_ele.find("reb").text
+                # For nokanji: currently it's an empty tag, so
+                # treating it as true/false.
+                nokanji = 1 if r_ele.find("nokanji") is not None else 0
+                r_ele_id = self.tables["r_ele"].insert(entry_id, value, nokanji)
+
+                # re_restr
+                for re_restr in r_ele.findall("re_restr"):
+                    value = re_restr.text
+                    self.tables["re_restr"].insert(r_ele_id, value)
+
+                # re_inf
+                for re_inf in r_ele.findall("re_inf"):
+                    value = re_inf.text
+                    entity_id = entity_int[value]
+                    self.tables["re_inf"].insert(r_ele_id, entity_id)
+
+                # re_pri
+                for re_pri in r_ele.findall("re_pri"):
+                    value = re_pri.text
+                    self.tables["re_pri"].insert(r_ele_id, value)
+
+
+            ########################################
 
             self.conn.commit()
 
@@ -192,6 +238,7 @@ class Table(object):
         print(query, args)
         print()
         self.cursor.execute(query, args)
+        print("INSERT result:", self.cursor.lastrowid)
         return self.cursor.lastrowid
 
     def _get_create_query(self):
