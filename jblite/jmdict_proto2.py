@@ -21,7 +21,7 @@ class Database(object):
 
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
-        self.cur = self.conn.cursor()
+        self.cursor = self.conn.cursor()
         if init_from_file is not None:
             self._reset_database()
             self._init_from_file(init_from_file)
@@ -30,64 +30,59 @@ class Database(object):
         raise NotImplementedError()
 
     def _reset_database(self):
-        other_tables = [
-            "entry",  # key->int ID
-            "r_ele",  # key-value plus nokanji flag
-            "audit",  # key->(update_date, update_details)
-            "lsource", # key -> lang, type=full/part, wasei=t/f
-            "gloss", # key -> lang, g_gend, value, pri flag
-            "links", # key -> tag, desc, uri
-            "bibl", # key -> tag, txt
+        other_tables = {
+            "entry": EntryTable,     # key->int ID
+            "r_ele": REleTable,      # key-value plus nokanji flag
+            "audit": AuditTable,     # key->(update_date, update_details)
+            "lsource": LSourceTable, # key -> lang, type=full/part, wasei=t/f
+            "gloss": GlossTable,     # key -> lang, g_gend, value, pri flag
+            "links": LinksTable,     # key -> tag, desc, uri
+            "bibl": BiblTable,       # key -> tag, txt
             #"etym", # not used yet
-            "entities": "",  # Info from JMdict XML entities (str->long str)
-            ]
-        pc_tables = [  # parent-child tables (parent_id, seq, child_id)
-            "entry_k_ele",
-            "k_ele_inf",
-            "k_ele_pri",
-            "entry_r_ele",
-            "r_ele_restr",
-            "r_ele_inf",
-            "r_ele_pri",
-            "entry_links",
-            "entry_bibl",
-            "entry_etym",
-            "entry_audit",
-            "entry_sense",
-            "sense_stagk",
-            "sense_stagr",
-            "sense_pos",
-            "sense_xref",
-            "sense_ant",
-            "sense_field",
-            "sense_misc",
-            "sense_s_inf",
-            "sense_dial",
-            "sense_example",
-            "sense_lsource",
-            "sense_gloss",
-            "gloss_pri",
+            "entities": EntityTable,  # Info from JMdict XML entities
             }
         kv_tables = [ # key-value tables (id -> text blob)
             "k_ele",
-            "ke_inf",
             "ke_pri",
             "re_restr",
-            "re_inf",
             "re_pri",
             "stagk",
             "stagr",
-            "pos",
             "xref",
             "ant",
-            "field",
-            "misc",
             "s_inf",
-            "dial",
             "example",
             "pri",
             ]
-        self.cur()
+        kv_entity_tables = [ # key-value tables where val == entity
+            "ke_inf",
+            "re_inf",
+            "dial",
+            "field",
+            "misc",
+            "pos",
+            ]
+
+        # Drop any existing tables
+        all_tables = other_tables.keys() + kv_tables + kv_entity_tables
+        for tbl in all_tables:
+            self.cursor.execute("DROP TABLE IF EXISTS %s" % tbl)
+
+        # Create mappings of table name to class
+        class_mappings = other_tables
+        for tbl in kv_tables:
+            class_mappings[tbl] = KeyValueTable
+        for tbl in kv_entity_tables:
+            class_mappings[tbl] = KeyEntityTable
+
+        # Create all table objects
+        table_mappings = {}
+        for tbl, cls in class_mappings.iteritems():
+            table_mappings[tbl] = cls(self.cursor, tbl)
+
+        # Create all tables in DB
+        for tbl_obj in table_mappings.itervalues():
+            tbl_obj.create()
 
     def _init_from_file(self, jmdict_src):
         raw_data = gzread(jmdict_src)
@@ -156,21 +151,25 @@ class Table(object):
     """Base class for tables."""
 
     # These queries must be specified in child classes.
-    table_name = None
     create_query = None
     insert_query = None
     index_queries = []
 
-    def __init__(self, cursor):
+    def __init__(self, cursor, table_name):
         self.cursor = cursor
         self.__next_id = 1
+        self.table_name = table_name
 
     def create(self):
         """Creates table, plus indices if supplied in class definition."""
+        print("CREATING:", self.table_name)
+        print(self._get_create_query())
         self.cursor.execute(self._get_create_query())
         index_queries = self._get_index_queries()
         for query in index_queries:
+            print(query)
             self.cursor.execute(query)
+        print()
 
     def insert(self, *args):
         self.cursor.execute(self._get_insert_query(), args)
@@ -199,78 +198,104 @@ class Table(object):
             return queries
 
 
-class AutoIncrementTable(Table):
-
-    """Auto-increment table base class."""
-
-    def __init__(self, cursor):
-        Table.__init__(self, cursor)
-        self.__next_id = 1
-
-    def insert(self, *args):
-        i = self._get_id()
-        query_args = [i] + args
-        try:
-            self.cursor.execute(self._get_insert_query(),
-                                query_args)
-        except Exception, e:
-            self._rollback_id()
-            raise e
-
-    def _get_id(self):
-        """Gets next auto-increment ID."""
-        result = self.next_id
-        self.__next_id += 1
-        return result
-
-    def _rollback_id(self):
-        """Rolls back ID (in case of errors)"""
-        self.__next_id -= 1
-
-    def _peek_next_id(self):
-        """Currently unused."""
-        # Here only to complete the API.
-        return self.__next_id
+class EntryTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, ent_seq INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?)"
+    index_queries = [
+        "CREATE INDEX seq_index ON %s (ent_seq)",
+        ]
 
 
-class EntityRefTable(AutoIncrementTable):
-    # Used for: ke_inf, re_inf, dial, 3 others...
-    table_name = None
-    # i = auto-inc, entity = value
-    create_query = "CREATE TABLE %s (i INTEGER, entity INTEGER)"
-    insert_query = "INSERT INTO %s VALUES (?, ?)"
-
-# ----- Real tables follow -----
-
-# ENTITY TABLES
-# =============
-#$ grep -e '&.*;' JMdict | grep -v -e '&lt;' -e '&gt;' -e '&nbsp;' -e '&amp;' | sort | uniq | grep -oe '^<[^>]*>' | uniq
-#<dial>
-#<field>
-#<ke_inf>
-#<misc>
-#<pos>
-#<re_inf>
+class KeyValueTable(Table):
+    """General key/value table for one-many relations."""
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, value TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        ]
 
 
-class KeInfTable(EntityRefTable):
-    table_name = "ke_inf"
-class ReInfTable(EntityRefTable):
-    table_name = "re_inf"
-class DialectTable(EntityRefTable):
-    table_name = "dial"
-class FieldTable(EntityRefTable):
-    table_name = "field"
-class MiscTable(EntityRefTable):
-    table_name = "misc"
-class PositionTable(EntityRefTable):
-    table_name = "pos"
+class KeyEntityTable(KeyValueTable):
+    """Just like a KeyValueTable, but with 'entity' instead of 'value'."""
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, entity INTEGER)")
 
 
-class EntityTable(AutoIncrementTable):
+class REleTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER,"
+                    " value TEXT, nokanji INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        ]
+
+
+class AuditTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER,"
+                    " update_date TEXT, update_details TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        ]
+
+
+class LSourceTable(Table):
+    """Represents the <lsource> element from JMdict.
+
+    Important changes:
+    ls_type=full/part => partial=1/0
+
+    """
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER,"
+                    " lang TEXT, partial INTEGER, wasei INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        ]
+
+
+class GlossTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER,"
+                    " lang TEXT, g_gend TEXT, value TEXT, pri INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        "CREATE INDEX lang_index ON %s (lang)",
+        "CREATE INDEX value_index ON %s (value)",
+        ]
+
+
+class LinksTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER,"
+                    " tag TEXT, desc TEXT, uri TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        ]
+
+
+class BiblTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER,"
+                    " tag TEXT, txt TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX fk_index ON %s (fk)",
+        ]
+
+
+class EntityTable(Table):
     table_name = "entities"
-    create_query = "CREATE TABLE %s (i INTEGER, entity TEXT, expansion TEXT)"
-    insert_query = "INSERT INTO %s VALUES (?, ?, ?)"
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER PRIMARY KEY, entity TEXT, expansion TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
     index_queries = [
         "CREATE INDEX entity_index ON %s (entity)",
         ]

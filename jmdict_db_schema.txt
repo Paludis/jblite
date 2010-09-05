@@ -1,3 +1,72 @@
+Entry
+  - ent_seq
+  * k_ele
+    - keb
+    * ke_inf
+    * ke_pri
+  + r_ele
+    - reb
+    ? re_nokanji
+    * re_restr
+    * re_inf
+    * re_pri
+  ? info
+    * links
+      - link_tag
+      - link_desc
+      - link_uri
+    * bibl
+      ? bib_tag
+      ? bib_txt
+    * etym (UNUSED)
+    * audit
+      - upd_date
+      - upd_detl
+  + sense
+    * stagk
+    * stagr
+    * pos
+    * xref*  # not sure why it's (#PCDATA)*...
+    * ant*   # not sure why it's (#PCDATA)*...
+    * field
+    * misc
+    * s_inf
+    * lsource
+    * dial
+    * gloss
+      * pri (UNUSED)
+    * example
+
+
+entry:
+  auto_inc (?)
+  ent_seq (also unique int)... good enough?
+
+entry < k_ele - keb
+              < ke_inf
+              < ke_pri
+
+# SIMPLE translation from XML to SQL:
+# Unique key for each table,
+# plus indexed foreign key (except top-level element)
+
+entity: id, ent_seq
+  k_ele: id, fk, blob (<keb>)
+    k_ele_inf: id, fk, entity
+    k_ele_pri: id, fk, value
+  r_ele: id, fk, blob, nokanji(flag)
+    r_ele_restr: id, fk, value
+    r_ele_inf: id, fk, entity
+    r_ele_pri: id, fk, value
+...etc, for all tables.
+
+
+
+
+---------------
+Old notes below
+---------------
+
 entry  # Keep around just as a full listing...
   id  # ent_seq good enough...?
 
