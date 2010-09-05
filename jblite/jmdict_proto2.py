@@ -12,20 +12,34 @@ import gettext
 gettext.install("jblite")
 
 
-
 class Database(object):
+
+    """Top level object for SQLite 3-based JMdict database."""
 
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
         self.cursor = self.conn.cursor()
         if init_from_file is not None:
-            self._reset_database()
-            self._init_from_file(init_from_file)
+            raw_data = gzread(init_from_file)
+
+            entities = self._get_entities(raw_data)
+            infile = StringIO(raw_data)
+            etree = ElementTree(file=infile)
+            infile.close()
+
+            table_d = self._create_new_tables()
+
+            self._populate_database(table_d, etree, entities)
 
     def search(self, query, pref_lang=None):
         raise NotImplementedError()
 
-    def _reset_database(self):
+    def _create_new_tables(self):
+        """(Re)creates the database tables.
+
+        Returns a dictionary mapping table names to table objects.
+
+        """
         other_tables = {
             "entry": EntryTable,     # key->int ID
             "r_ele": REleTable,      # key-value plus nokanji flag
@@ -40,9 +54,9 @@ class Database(object):
             }
         kv_tables = [ # key-value tables (id -> text blob)
             "k_ele",
-            "k_ele_pri",
-            "r_ele_restr",
-            "r_ele_pri",
+            "ke_pri",
+            "re_restr",
+            "re_pri",
             "stagk",
             "stagr",
             "xref",  # (#PCDATA)* - why the *?
@@ -52,8 +66,8 @@ class Database(object):
             "pri",
             ]
         kv_entity_tables = [ # key-value tables where val == entity
-            "k_ele_inf",
-            "r_ele_inf",
+            "ke_inf",
+            "re_inf",
             "dial",
             "field",
             "misc",
@@ -81,15 +95,29 @@ class Database(object):
         for tbl_obj in table_mappings.itervalues():
             tbl_obj.create()
 
-    def _init_from_file(self, jmdict_src):
-        raw_data = gzread(jmdict_src)
-        entities = self._get_entities(raw_data)
+        return table_mappings
 
-        infile = StringIO(raw_data)
-        etree = ElementTree(file=infile)
-        infile.close()
+    def _populate_database(self, table_d, etree, entities):
+        """Imports XML data into SQLite database.
 
-        self._process_etree(etree, entities)
+        table_d: table to table_object dictionary
+        etree: ElementTree object for JMdict
+        entities: entity name to description dictionary
+
+        """
+        # Populate entities table and get integer keys
+        # NOTE: we'll be mapping from *expanded* entities to ints.
+        entity_int = {}
+        tbl = table_d['entities']
+        for entity, expansion in entities.iteritems():
+            i = tbl.insert(entity, expansion)
+            entity_int[expansion] = i
+            print(entity, i)
+
+        # TO DO
+
+        # Finalize
+        self.conn.commit()
 
     def _get_entities(self, xml_data):
         """Gets the ENTITY definitions from JMdict.
@@ -103,7 +131,6 @@ class Database(object):
         regex = "<!ENTITY[ ]+([a-zA-Z-]+)[ ]+['\"](.*?)['\"]>"
         for match in re.finditer(regex, xml_data):
             key, value = match.groups()[0:2]
-            key = "&%s;" % key  # Convert to &entity; format
             entities[key] = value
         return entities
 
@@ -144,13 +171,26 @@ class Table(object):
 
     def create(self):
         """Creates table, plus indices if supplied in class definition."""
+        query = self._get_create_query()
+        print(query)
         self.cursor.execute(self._get_create_query())
         index_queries = self._get_index_queries()
         for query in index_queries:
+            print(query)
             self.cursor.execute(query)
+        print()
 
     def insert(self, *args):
-        self.cursor.execute(self._get_insert_query(), args)
+        """Runs an insert with the specified arguments.
+
+        Returns the row id of the insert.  (cursor.lastrowid)
+
+        """
+        query = self._get_insert_query()
+        print(query, args)
+        print()
+        self.cursor.execute(query, args)
+        return self.cursor.lastrowid
 
     def _get_create_query(self):
         if self.table_name is None:
@@ -286,10 +326,9 @@ class EntityTable(Table):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, entity TEXT, expansion TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
-    index_queries = [
-        "CREATE INDEX %s_entity ON %s (entity)",
-        ]
 
+
+######################################################################
 
 def main():
     if len(sys.argv) < 3:
