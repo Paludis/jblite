@@ -106,11 +106,11 @@ class Database(object):
 
         # Populate entities table and get integer keys
         # NOTE: we'll be mapping from *expanded* entities to ints.
-        entity_int = {}
+        entity_int_d = {}
         tbl = self.tables['entity']
         for entity, expansion in entities.iteritems():
             i = tbl.insert(entity, expansion)
-            entity_int[expansion] = i
+            entity_int_d[expansion] = i
 
         self.conn.commit()
 
@@ -132,7 +132,7 @@ class Database(object):
                 # ke_inf
                 for ke_inf in k_ele.findall("ke_inf"):
                     value = ke_inf.text.strip()
-                    entity_id = entity_int[value]
+                    entity_id = entity_int_d[value]
                     self.tables["ke_inf"].insert(k_ele_id, entity_id)
 
                 # ke_pri
@@ -156,7 +156,7 @@ class Database(object):
                 # re_inf
                 for re_inf in r_ele.findall("re_inf"):
                     value = re_inf.text.strip()
-                    entity_id = entity_int[value]
+                    entity_id = entity_int_d[value]
                     self.tables["re_inf"].insert(r_ele_id, entity_id)
 
                 # re_pri
@@ -202,16 +202,8 @@ class Database(object):
 
                 for elem_name in key_entity_tables:
                     for element in sense.findall(elem_name):
-                        try:
-                            entity_id = entity_int[element.text.strip()]
-                            self.tables[elem_name].insert(sense_id, entity_id)
-                        except:
-                            print("ERROR DETECTED:")
-                            print(repr(element.text), type(element.text))
-                            print("compared to dict...")
-                            for key in sorted(entity_int.keys()):
-                                print(repr(key), type(key))
-                            raise
+                        entity_id = entity_int_d[element.text.strip()]
+                        self.tables[elem_name].insert(sense_id, entity_id)
 
                 for lsource in sense.findall("lsource"):
                     lang = lsource.get("xml:lang", "eng")
