@@ -189,28 +189,30 @@ class Database(object):
                     self.tables["audit"].insert(entry_id, upd_dte, upd_detl)
 
             # sense
+            key_entity_tables = ["pos", "field", "misc", "dial"]
+            key_value_tables = ["stagk", "stagr", "xref", "ant", "s_inf", "example"]
+
             for sense in entry.findall("sense"):
                 # Each sense gets its own ID, for grouping purposes
                 sense_id = self.tables["sense"].insert(entry_id)
-                for stagk in sense.findall("stagk"):
-                    self.tables["stagk"].insert(sense_id, stagk.text)
-                for stagr in sense.findall("stagr"):
-                    self.tables["stagr"].insert(sense_id, stagr.text)
-                for pos in sense.findall("pos"):
-                    entity_id = entity_int[pos.text]
-                    self.tables["pos"].insert(sense_id, entity_id)
-                for xref in sense.findall("xref"):
-                    self.tables["xref"].insert(sense_id, xref.text)
-                for ant in sense.findall("ant"):
-                    self.tables["ant"].insert(sense_id, ant.text)
-                for field in sense.findall("field"):
-                    entity_id = entity_int[field.text]
-                    self.tables["field"].insert(sense_id, entity_id)
-                for misc in sense.findall("misc"):
-                    entity_id = entity_int[misc.text]
-                    self.tables["misc"].insert(sense_id, entity_id)
-                for s_inf in sense.findall("s_inf"):
-                    self.tables["s_inf"].insert(sense_id, s_inf.text)
+
+                for elem_name in key_value_tables:
+                    for element in sense.findall(elem_name):
+                        self.tables[elem_name].insert(sense_id, element.text)
+
+                for elem_name in key_entity_tables:
+                    for element in sense.findall(elem_name):
+                        try:
+                            entity_id = entity_int[element.text.strip()]
+                            self.tables[elem_name].insert(sense_id, entity_id)
+                        except:
+                            print("ERROR DETECTED:")
+                            print(repr(pos.text), type(pos.text))
+                            print("compared to dict...")
+                            for key in sorted(entity_int.keys()):
+                                print(repr(key), type(key))
+                            raise
+
                 for lsource in sense.findall("lsource"):
                     lang = lsource.get("xml:lang", "eng")
                     ls_type = lsource.get("ls_type")  # implied "full" if absent, "part" otherwise
@@ -228,9 +230,6 @@ class Database(object):
 
                     self.tables["lsource"].insert(sense_id,
                                                   lang, partial, wasei)
-                for dial in sense.findall("dial"):
-                    entity_id = entity_int[dial.text]
-                    self.tables["dial"].insert(sense_id, entity_id)
                 for gloss in sense.findall("gloss"):
                     lang = gloss.get("xml:lang", "eng")
                     g_gend = gloss.get("g_gend")
@@ -251,8 +250,6 @@ class Database(object):
                             print("GLOSS DETECTED (can't decode text):",
                                   repr(gloss.text), "|",
                                   lang, g_gend, pri_list)
-                for example in sense.findall("example"):
-                    self.tables["example"].insert(sense_id, example.text)
 
             ########################################
 
