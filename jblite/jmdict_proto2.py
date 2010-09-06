@@ -252,8 +252,12 @@ class Database(object):
 
             ########################################
 
-            self.conn.commit()
+            if (i+1) % 100 == 0:
+                self.conn.commit()
             print("========================================")
+
+        self.conn.commit()
+
 
     def _get_entities(self, xml_data):
         """Gets the ENTITY definitions from JMdict.
