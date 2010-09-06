@@ -132,7 +132,7 @@ class Database(object):
         # Iterate through each entry
         #print("========================================")
         for i, entry in enumerate(etree.findall("entry")):
-            if i >= 200:
+            if i >= 10000:
                 break
 
             # entry table
