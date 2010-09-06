@@ -49,8 +49,7 @@ class Database(object):
             "gloss": GlossTable,     # key -> lang, g_gend, value, pri flag
             "links": LinksTable,     # key -> tag, desc, uri
             "bibl": BiblTable,       # key -> tag, txt
-            #"etym", # not used yet
-            "entities": EntityTable,  # Info from JMdict XML entities
+            "entity": EntityTable,  # Info from JMdict XML entities
             }
 
         # Set up key/value and key/entity tables
@@ -59,6 +58,7 @@ class Database(object):
             "ke_pri",
             "re_restr",
             "re_pri",
+            "etym",
             "stagk",
             "stagr",
             "xref",  # (#PCDATA)* - why the *?
@@ -101,10 +101,13 @@ class Database(object):
         entities: entity name to description dictionary
 
         """
+        # NOTE: this is waaay too long.  Should be broken up somehow.
+        # For now this will work though...
+
         # Populate entities table and get integer keys
         # NOTE: we'll be mapping from *expanded* entities to ints.
         entity_int = {}
-        tbl = self.tables['entities']
+        tbl = self.tables['entity']
         for entity, expansion in entities.iteritems():
             i = tbl.insert(entity, expansion)
             entity_int[expansion] = i
@@ -161,57 +164,85 @@ class Database(object):
                     value = re_pri.text
                     self.tables["re_pri"].insert(r_ele_id, value)
 
+            # info
+            # (Although children of an info node, since there's only
+            # one per entry, let's connect directly to the entry.)
             info = entry.find("info")
             if info is not None:
                 for links in info.findall("links"):
                     link_tag = links.find("link_tag")
                     link_desc = links.find("link_desc")
                     link_uri = links.find("link_uri")
-                    # TO DO: insert
+                    self.tables["links"].insert(entry_id, link_tag, link_desc,
+                                                link_uri)
                 for bibl in info.findall("bibl"):
                     bib_tag = links.find("bib_tag")
                     bib_txt = links.find("bib_txt")
                     bib_tag = bib_tag.text if bib_tag is not None else ""
                     bib_txt = bib_txt.text if bib_txt is not None else ""
-                    # TO DO: insert
+                    self.tables["bibl"].insert(entry_id, bib_tag, bib_txt)
                 for etym in info.findall("etym"):
-                    # TO DO: insert
-                    pass
+                    self.tables["etym"].insert(entry_id, etym.text)
                 for audit in info.findall("audit"):
                     upd_date = audit.find("upd_date")
                     upd_detl = audit.find("upd_detl")
-                    # TO DO: insert
+                    self.tables["audit"].insert(entry_id, upd_dte, upd_detl)
 
+            # sense
             for sense in entry.findall("sense"):
+                # Each sense gets its own ID, for grouping purposes
+                sense_id = self.tables["sense"].insert(entry_id)
                 for stagk in sense.findall("stagk"):
-                    pass
+                    self.tables["stagk"].insert(sense_id, stagk.text)
                 for stagr in sense.findall("stagr"):
-                    pass
+                    self.tables["stagr"].insert(sense_id, stagr.text)
                 for pos in sense.findall("pos"):
-                    pass
+                    entity_id = entity_int[pos.text]
+                    self.tables["pos"].insert(sense_id, entity_id)
                 for xref in sense.findall("xref"):
-                    pass
+                    self.tables["xref"].insert(sense_id, xref.text)
                 for ant in sense.findall("ant"):
-                    pass
+                    self.tables["ant"].insert(sense_id, ant.text)
                 for field in sense.findall("field"):
-                    pass
+                    entity_id = entity_int[field.text]
+                    self.tables["field"].insert(sense_id, entity_id)
                 for misc in sense.findall("misc"):
-                    pass
+                    entity_id = entity_int[misc.text]
+                    self.tables["misc"].insert(sense_id, entity_id)
                 for s_inf in sense.findall("s_inf"):
-                    pass
+                    self.tables["s_inf"].insert(sense_id, s_inf.text)
                 for lsource in sense.findall("lsource"):
-                    pass
+                    lang = lsource.get("xml:lang", "eng")
+                    ls_type = lsource.get("ls_type")  # implied "full" if absent, "part" otherwise
+                    ls_wasei = lsource.get("ls_wasei") # usually "y"... just a flag.
+
+                    partial = 1 if ls_type is not None else 0
+                    if ls_wasei is None:
+                        wasei = 0
+                    elif ls_wasei.text == "y":
+                        wasei = 1
+                    else:
+                        raise ValueError(
+                            'Only known valid ls_wasei attribute value '
+                            'is "y", found:', ls_wasei.text)
+
+                    self.tables["lsource"].insert(sense_id,
+                                                  lang, partial, wasei)
                 for dial in sense.findall("dial"):
-                    pass
+                    entity_id = entity_int[dial.text]
+                    self.tables["dial"].insert(sense_id, entity_id)
                 for gloss in sense.findall("gloss"):
                     lang = gloss.get("xml:lang", "eng")
                     g_gend = gloss.get("g_gend")
                     pri_list = gloss.getchildren()
                     if len(pri_list) > 1:
+                        gloss_id = self.tables['gloss'].insert(
+                            sense_id, lang, g_gend, gloss.text, 1)
                         for pri in pri_list:
-                            pass
+                            self.tables['pri'].insert(gloss_id, pri.text)
                     else:
-                        #pass
+                        self.tables['gloss'].insert(sense_id, lang, g_gend,
+                                                    gloss.text, 0)
                         try:
                             out_text = gloss.text.encode("cp932")
                             print("GLOSS DETECTED:", out_text, "|",
@@ -221,7 +252,7 @@ class Database(object):
                                   repr(gloss.text), "|",
                                   lang, g_gend, pri_list)
                 for example in sense.findall("example"):
-                    pass
+                    self.tables["example"].insert(sense_id, example.text)
 
             ########################################
 
@@ -395,6 +426,7 @@ class LSourceTable(Table):
 
     Important changes:
     ls_type=full/part => partial=1/0
+    ls_wasei=y/null => wasei=1/0
 
     """
     create_query = ("CREATE TABLE %s "
@@ -439,7 +471,6 @@ class BiblTable(Table):
 
 
 class EntityTable(Table):
-    table_name = "entities"
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, entity TEXT, expansion TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
