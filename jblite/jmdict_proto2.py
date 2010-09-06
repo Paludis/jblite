@@ -113,7 +113,7 @@ class Database(object):
 
         # Iterate through each entry
         for i, entry in enumerate(etree.findall("entry")):
-            if i >= 10:
+            if i >= 200:
                 break
 
             # entry table
@@ -235,7 +235,14 @@ class Table(object):
 
         """
         query = self._get_insert_query()
-        print(query, args)
+
+        #try:
+        uni_args = u"(%s)" % u", ".join(
+            [unicode(o) for o in args])
+        print(query, uni_args)
+        #except:
+        #    print(query, args)
+
         print()
         self.cursor.execute(query, args)
         print("INSERT result:", self.cursor.lastrowid)
