@@ -236,12 +236,12 @@ class Table(object):
         """
         query = self._get_insert_query()
 
-        #try:
-        uni_args = u"(%s)" % u", ".join(
-            [unicode(o) for o in args])
-        print(query, uni_args)
-        #except:
-        #    print(query, args)
+        try:
+            uni_args = u"(%s)" % u", ".join(
+                [unicode(o) for o in args])
+            print(query, uni_args)
+        except UnicodeEncodeError:
+            print("(UnicodeEncodeError)", query, args)
 
         print()
         self.cursor.execute(query, args)
