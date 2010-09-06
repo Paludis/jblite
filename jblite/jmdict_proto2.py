@@ -14,7 +14,12 @@ gettext.install("jblite")
 
 
 def do_time(fn, *args, **kwargs):
-    """Wraps a function call and prints the result."""
+    """Wraps a function call and prints the result.
+
+    Technically, this will also wrap an object instantiation, and will
+    return the object.  (This lets us time ElementTree instantiation.)
+
+    """
     start = time.time()
     result = fn(*args, **kwargs)
     end = time.time()
