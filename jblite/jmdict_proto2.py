@@ -132,8 +132,6 @@ class Database(object):
         # Iterate through each entry
         #print("========================================")
         for i, entry in enumerate(etree.findall("entry")):
-            if i >= 10000:
-                break
 
             # entry table
             ent_seq = entry.find("ent_seq")
