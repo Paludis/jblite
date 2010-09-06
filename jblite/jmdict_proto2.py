@@ -131,7 +131,7 @@ class Database(object):
 
                 # ke_inf
                 for ke_inf in k_ele.findall("ke_inf"):
-                    value = ke_inf.text
+                    value = ke_inf.text.strip()
                     entity_id = entity_int[value]
                     self.tables["ke_inf"].insert(k_ele_id, entity_id)
 
@@ -155,7 +155,7 @@ class Database(object):
 
                 # re_inf
                 for re_inf in r_ele.findall("re_inf"):
-                    value = re_inf.text
+                    value = re_inf.text.strip()
                     entity_id = entity_int[value]
                     self.tables["re_inf"].insert(r_ele_id, entity_id)
 
