@@ -207,7 +207,7 @@ class Database(object):
                             self.tables[elem_name].insert(sense_id, entity_id)
                         except:
                             print("ERROR DETECTED:")
-                            print(repr(pos.text), type(pos.text))
+                            print(repr(element.text), type(element.text))
                             print("compared to dict...")
                             for key in sorted(entity_int.keys()):
                                 print(repr(key), type(key))
@@ -265,7 +265,7 @@ class Database(object):
         dtd = self._get_dtd(xml_data)
         # do some logic to find all entities...
         entities = {}
-        regex = "<!ENTITY[ ]+([a-zA-Z-]+)[ ]+['\"](.*?)['\"]>"
+        regex = '<!ENTITY[ ]+([a-zA-Z0-9-]+)[ ]+"(.*?)">'
         for match in re.finditer(regex, xml_data):
             key, value = match.groups()[0:2]
             entities[key] = value
