@@ -228,7 +228,7 @@ class Database(object):
                     partial = 1 if ls_type is not None else 0
                     if ls_wasei is None:
                         wasei = 0
-                    elif ls_wasei.text == "y":
+                    elif ls_wasei == "y":
                         wasei = 1
                     else:
                         raise ValueError(
