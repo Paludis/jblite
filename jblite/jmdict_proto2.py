@@ -130,7 +130,7 @@ class Database(object):
         self.conn.commit()
 
         # Iterate through each entry
-        print("========================================")
+        #print("========================================")
         for i, entry in enumerate(etree.findall("entry")):
             if i >= 200:
                 break
@@ -254,7 +254,7 @@ class Database(object):
 
             if (i+1) % 100 == 0:
                 self.conn.commit()
-            print("========================================")
+            #print("========================================")
 
         self.conn.commit()
 
@@ -314,11 +314,11 @@ class Table(object):
     def create(self):
         """Creates table, plus indices if supplied in class definition."""
         query = self._get_create_query()
-        print(query)
-        self.cursor.execute(self._get_create_query())
+        #print(query)
+        self.cursor.execute(query)
         index_queries = self._get_index_queries()
         for query in index_queries:
-            print(query)
+            #print(query)
             self.cursor.execute(query)
 
     def insert(self, *args):
@@ -329,15 +329,15 @@ class Table(object):
         """
         query = self._get_insert_query()
 
-        try:
-            uni_args = u"(%s)" % u", ".join(
-                [unicode(o) for o in args])
-            print(query, uni_args)
-        except UnicodeEncodeError:
-            print("(UnicodeEncodeError)", query, args)
+        #try:
+        #    uni_args = u"(%s)" % u", ".join(
+        #        [unicode(o) for o in args])
+        #    print(query, uni_args)
+        #except UnicodeEncodeError:
+        #    print("(UnicodeEncodeError)", query, args)
 
         self.cursor.execute(query, args)
-        print("INSERT result:", self.cursor.lastrowid)
+        #print("INSERT result:", self.cursor.lastrowid)
         return self.cursor.lastrowid
 
     def _get_create_query(self):
