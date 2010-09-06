@@ -242,14 +242,6 @@ class Database(object):
                     else:
                         self.tables['gloss'].insert(sense_id, lang, g_gend,
                                                     gloss.text, 0)
-                        try:
-                            out_text = gloss.text.encode("cp932")
-                            print("GLOSS DETECTED:", out_text, "|",
-                                  lang, g_gend, pri_list)
-                        except:
-                            print("GLOSS DETECTED (can't decode text):",
-                                  repr(gloss.text), "|",
-                                  lang, g_gend, pri_list)
 
             ########################################
 
