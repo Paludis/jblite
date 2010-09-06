@@ -1,7 +1,7 @@
 from __future__ import print_function
 from __future__ import with_statement
 
-import os, sys, re, sqlite3
+import os, sys, re, sqlite3, time
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 from helpers import gzread
@@ -10,6 +10,16 @@ import gettext
 #t = gettext.translation("jblite")
 #_ = t.ugettext
 gettext.install("jblite")
+
+
+
+def do_time(fn, *args, **kwargs):
+    """Wraps a function call and prints the result."""
+    start = time.time()
+    result = fn(*args, **kwargs)
+    end = time.time()
+    print("do_time: Fn=%s, Time=%f" % (repr(fn), end-start))
+    return result
 
 
 class Database(object):
