@@ -112,6 +112,7 @@ class Database(object):
         self.conn.commit()
 
         # Iterate through each entry
+        print("========================================")
         for i, entry in enumerate(etree.findall("entry")):
             if i >= 200:
                 break
@@ -160,10 +161,72 @@ class Database(object):
                     value = re_pri.text
                     self.tables["re_pri"].insert(r_ele_id, value)
 
+            info = entry.find("info")
+            if info is not None:
+                for links in info.findall("links"):
+                    link_tag = links.find("link_tag")
+                    link_desc = links.find("link_desc")
+                    link_uri = links.find("link_uri")
+                    # TO DO: insert
+                for bibl in info.findall("bibl"):
+                    bib_tag = links.find("bib_tag")
+                    bib_txt = links.find("bib_txt")
+                    bib_tag = bib_tag.text if bib_tag is not None else ""
+                    bib_txt = bib_txt.text if bib_txt is not None else ""
+                    # TO DO: insert
+                for etym in info.findall("etym"):
+                    # TO DO: insert
+                    pass
+                for audit in info.findall("audit"):
+                    upd_date = audit.find("upd_date")
+                    upd_detl = audit.find("upd_detl")
+                    # TO DO: insert
+
+            for sense in entry.findall("sense"):
+                for stagk in sense.findall("stagk"):
+                    pass
+                for stagr in sense.findall("stagr"):
+                    pass
+                for pos in sense.findall("pos"):
+                    pass
+                for xref in sense.findall("xref"):
+                    pass
+                for ant in sense.findall("ant"):
+                    pass
+                for field in sense.findall("field"):
+                    pass
+                for misc in sense.findall("misc"):
+                    pass
+                for s_inf in sense.findall("s_inf"):
+                    pass
+                for lsource in sense.findall("lsource"):
+                    pass
+                for dial in sense.findall("dial"):
+                    pass
+                for gloss in sense.findall("gloss"):
+                    lang = gloss.get("xml:lang", "eng")
+                    g_gend = gloss.get("g_gend")
+                    pri_list = gloss.getchildren()
+                    if len(pri_list) > 1:
+                        for pri in pri_list:
+                            pass
+                    else:
+                        #pass
+                        try:
+                            out_text = gloss.text.encode("cp932")
+                            print("GLOSS DETECTED:", out_text, "|",
+                                  lang, g_gend, pri_list)
+                        except:
+                            print("GLOSS DETECTED (can't decode text):",
+                                  repr(gloss.text), "|",
+                                  lang, g_gend, pri_list)
+                for example in sense.findall("example"):
+                    pass
 
             ########################################
 
             self.conn.commit()
+            print("========================================")
 
     def _get_entities(self, xml_data):
         """Gets the ENTITY definitions from JMdict.
@@ -226,7 +289,6 @@ class Table(object):
         for query in index_queries:
             print(query)
             self.cursor.execute(query)
-        print()
 
     def insert(self, *args):
         """Runs an insert with the specified arguments.
@@ -243,7 +305,6 @@ class Table(object):
         except UnicodeEncodeError:
             print("(UnicodeEncodeError)", query, args)
 
-        print()
         self.cursor.execute(query, args)
         print("INSERT result:", self.cursor.lastrowid)
         return self.cursor.lastrowid
