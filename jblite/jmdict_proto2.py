@@ -185,9 +185,9 @@ class Database(object):
             info = entry.find("info")
             if info is not None:
                 for links in info.findall("links"):
-                    link_tag = links.find("link_tag")
-                    link_desc = links.find("link_desc")
-                    link_uri = links.find("link_uri")
+                    link_tag = links.find("link_tag").text
+                    link_desc = links.find("link_desc").text
+                    link_uri = links.find("link_uri").text
                     self.tables["links"].insert(entry_id, link_tag, link_desc,
                                                 link_uri)
                 for bibl in info.findall("bibl"):
@@ -199,9 +199,9 @@ class Database(object):
                 for etym in info.findall("etym"):
                     self.tables["etym"].insert(entry_id, etym.text)
                 for audit in info.findall("audit"):
-                    upd_date = audit.find("upd_date")
-                    upd_detl = audit.find("upd_detl")
-                    self.tables["audit"].insert(entry_id, upd_dte, upd_detl)
+                    upd_date = audit.find("upd_date").text
+                    upd_detl = audit.find("upd_detl").text
+                    self.tables["audit"].insert(entry_id, upd_date, upd_detl)
 
             # sense
             key_entity_tables = ["pos", "field", "misc", "dial"]
@@ -336,7 +336,12 @@ class Table(object):
         #except UnicodeEncodeError:
         #    print("(UnicodeEncodeError)", query, args)
 
-        self.cursor.execute(query, args)
+        try:
+            self.cursor.execute(query, args)
+        except:
+            print("EXCEPTION OCCURRED ON INSERT: query=%s, args=%s" %
+                  (repr(query), repr(args)))
+            raise
         #print("INSERT result:", self.cursor.lastrowid)
         return self.cursor.lastrowid
 
