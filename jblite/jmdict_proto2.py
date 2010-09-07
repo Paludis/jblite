@@ -45,6 +45,7 @@ class Database(object):
 
             do_time(self._create_new_tables)
             do_time(self._populate_database, etree, entities)
+            do_time(self.conn.commit)
 
     def search(self, query, pref_lang=None):
         raise NotImplementedError()
@@ -126,8 +127,6 @@ class Database(object):
         for entity, expansion in entities.iteritems():
             i = tbl.insert(entity, expansion)
             entity_int_d[expansion] = i
-
-        self.conn.commit()
 
         # Iterate through each entry
         #print("========================================")
@@ -248,13 +247,7 @@ class Database(object):
                         self.tables['gloss'].insert(sense_id, lang, g_gend,
                                                     gloss.text, 0)
 
-            ########################################
-
-            if (i+1) % 100 == 0:
-                self.conn.commit()
             #print("========================================")
-
-        self.conn.commit()
 
 
     def _get_entities(self, xml_data):
