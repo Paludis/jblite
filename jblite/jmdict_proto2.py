@@ -36,16 +36,16 @@ class Database(object):
         self.cursor = self.conn.cursor()
         self.tables = self._create_tables()
         if init_from_file is not None:
-            raw_data = do_time(gzread, init_from_file)
+            raw_data = gzread(init_from_file)
 
-            entities = do_time(self._get_entities, raw_data)
+            entities = self._get_entities(raw_data)
             infile = StringIO(raw_data)
-            etree = do_time(ElementTree, file=infile)
+            etree = ElementTree(file=infile)
             infile.close()
 
-            do_time(self._create_new_tables)
-            do_time(self._populate_database, etree, entities)
-            do_time(self.conn.commit)
+            self._create_new_tables()
+            self._populate_database(etree, entities)
+            self.conn.commit()
 
     def search(self, query, pref_lang=None):
         raise NotImplementedError()
