@@ -8,7 +8,8 @@ database.  All "data" within JMdict (that is, everything except
 comments) should be preserved in the SQLite format.
 
 A converter for KANJIDIC2 is also in this package, but it is not
-recommended.  I will be rewriting it when time allows.
+currently supported or recommended.  I will be rewriting it when time
+allows.
 
 Documentation is lacking right now, but a few notes:
 

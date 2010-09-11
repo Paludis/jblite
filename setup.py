@@ -4,15 +4,14 @@
 from distutils.core import setup
 
 setup(name='jblite',
-      version='0.1',
+      version='0.2',
       description='J-Ben SQLite parsing scripts',
       author='Paul Goins',
       author_email='general@vultaire.net',
       url='http://jben.vultaire.net/',
       packages=['jblite'],
-      requires=['jbparse'],
       classifiers=[
-          'Development Status :: 3 - Alpha',
+          'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',
           'License :: OSI Approved :: BSD License',
           'Natural Language :: English',
