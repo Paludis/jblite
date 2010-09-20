@@ -4,7 +4,7 @@
 from distutils.core import setup
 
 setup(name='jblite',
-      version='0.2',
+      version='0.3',
       description='J-Ben SQLite parsing scripts',
       author='Paul Goins',
       author_email='general@vultaire.net',
