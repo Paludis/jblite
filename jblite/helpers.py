@@ -1,4 +1,4 @@
-import sqlite3, gzip
+import time, sqlite3, gzip
 
 
 def with_db(db_fname, fn, *args, **kwargs):
@@ -26,3 +26,16 @@ def gzread(fname):
             raise e
     return data
 
+
+def do_time(fn, *args, **kwargs):
+    """Wraps a function call and prints the result.
+
+    Technically, this will also wrap an object instantiation, and will
+    return the object.  (This lets us time ElementTree instantiation.)
+
+    """
+    start = time.time()
+    result = fn(*args, **kwargs)
+    end = time.time()
+    print("do_time: Fn=%s, Time=%f" % (repr(fn), end-start))
+    return result

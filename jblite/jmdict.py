@@ -1,30 +1,16 @@
 from __future__ import print_function
 from __future__ import with_statement
 
-import os, sys, re, sqlite3, time
+import os, sys, re, sqlite3
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 from helpers import gzread
+from table import Table, KeyValueTable
 
 import gettext
 #t = gettext.translation("jblite")
 #_ = t.ugettext
 gettext.install("jblite")
-
-
-
-def do_time(fn, *args, **kwargs):
-    """Wraps a function call and prints the result.
-
-    Technically, this will also wrap an object instantiation, and will
-    return the object.  (This lets us time ElementTree instantiation.)
-
-    """
-    start = time.time()
-    result = fn(*args, **kwargs)
-    end = time.time()
-    print("do_time: Fn=%s, Time=%f" % (repr(fn), end-start))
-    return result
 
 
 class Database(object):
@@ -34,7 +20,7 @@ class Database(object):
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
         self.cursor = self.conn.cursor()
-        self.tables = self._create_tables()
+        self.tables = self._create_table_objects()
         if init_from_file is not None:
             raw_data = gzread(init_from_file)
 
@@ -50,7 +36,7 @@ class Database(object):
     def search(self, query, pref_lang=None):
         raise NotImplementedError()
 
-    def _create_tables(self):
+    def _create_table_objects(self):
         """Creates table objects.
 
         Returns a dictionary of table name to table object.
@@ -129,7 +115,6 @@ class Database(object):
             entity_int_d[expansion] = i
 
         # Iterate through each entry
-        #print("========================================")
         for i, entry in enumerate(etree.findall("entry")):
 
             # entry table
@@ -247,9 +232,6 @@ class Database(object):
                         self.tables['gloss'].insert(sense_id, lang, g_gend,
                                                     gloss.text, 0)
 
-            #print("========================================")
-
-
     def _get_entities(self, xml_data):
         """Gets the ENTITY definitions from JMdict.
 
@@ -280,105 +262,12 @@ class Database(object):
         return dtd
 
 
-class Table(object):
-
-    """Base class for tables."""
-
-    # These queries must be specified in child classes.
-    create_query = None
-    insert_query = None
-
-    # Index queries are not required.  If specified, they are assumed
-    # to take the format:
-    #
-    #   CREATE INDEX %s_XXX ON %s (YYY)",
-    #
-    # where %s is a placeholder for the table name, and XXX/YYY are
-    # replaced as desired.
-    index_queries = []
-
-    def __init__(self, cursor, table_name):
-        self.cursor = cursor
-        self.__next_id = 1
-        self.table_name = table_name
-
-    def create(self):
-        """Creates table, plus indices if supplied in class definition."""
-        query = self._get_create_query()
-        #print(query)
-        self.cursor.execute(query)
-        index_queries = self._get_index_queries()
-        for query in index_queries:
-            #print(query)
-            self.cursor.execute(query)
-
-    def insert(self, *args):
-        """Runs an insert with the specified arguments.
-
-        Returns the row id of the insert.  (cursor.lastrowid)
-
-        """
-        query = self._get_insert_query()
-
-        #try:
-        #    uni_args = u"(%s)" % u", ".join(
-        #        [unicode(o) for o in args])
-        #    print(query, uni_args)
-        #except UnicodeEncodeError:
-        #    print("(UnicodeEncodeError)", query, args)
-
-        try:
-            self.cursor.execute(query, args)
-        except:
-            print("EXCEPTION OCCURRED ON INSERT: query=%s, args=%s" %
-                  (repr(query), repr(args)))
-            raise
-        #print("INSERT result:", self.cursor.lastrowid)
-        return self.cursor.lastrowid
-
-    def _get_create_query(self):
-        if self.table_name is None:
-            raise ValueError(
-                "table_name must be specified in class definition")
-        return self.create_query % self.table_name
-
-    def _get_insert_query(self):
-        if self.table_name is None:
-            raise ValueError(
-                "table_name must be specified in class definition")
-        return self.insert_query % self.table_name
-
-    def _get_index_queries(self):
-        if self.table_name is None:
-            raise ValueError(
-                "table_name must be specified in class definition")
-        if (not (isinstance(self.index_queries, list))
-          or (len(self.index_queries) == 0)):
-            return []
-        else:
-            # Each query needs to have the table name merged in two
-            # places.
-            queries = [q % (self.table_name, self.table_name)
-                       for q in self.index_queries]
-            return queries
-
-
 class EntryTable(Table):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, ent_seq INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?)"
     index_queries = [
         "CREATE INDEX %s_seq ON %s (ent_seq)",
-        ]
-
-
-class KeyValueTable(Table):
-    """General key/value table for one-many relations."""
-    create_query = ("CREATE TABLE %s "
-                    "(id INTEGER PRIMARY KEY, fk INTEGER, value TEXT)")
-    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
-    index_queries = [
-        "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
 
@@ -476,7 +365,8 @@ class EntityTable(Table):
 
 def main():
     if len(sys.argv) < 3:
-        print(_("Please specify"), file=sys.stderr)
+        print(_("Syntax: %s <db_filename> [xml_source]" % sys.argv[0]),
+              file=sys.stderr)
     db = Database(sys.argv[1], init_from_file=sys.argv[2])
 
 if __name__ == "__main__":
