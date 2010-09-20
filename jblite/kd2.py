@@ -43,13 +43,20 @@ class Database(object):
 
         """
         class_mappings = {
+            "header": HeaderTable,
+            "character": CharacterTable,
+            "codepoint": TypeValueTable,
+            "radical": TypeValueTable,
+            "stroke_count": StrokeCountTable,
+            "variant": TypeValueTable,
+            "rad_name": KeyValueTable,
+            "dic_number": DicNumberTable,
+            "query_code": QueryCodeTable,
+            "rmgroup": RMGroupTable,
+            "reading": ReadingTable,
+            "meaning": MeaningTable,
+            "nanori": KeyValueTable,
             }
-
-        # Set up key/value tables
-        kv_tables = [ # key-value tables (id -> text blob)
-            ]
-        for tbl in kv_tables:
-            class_mappings[tbl] = KeyValueTable
 
         # Create all table objects
         table_mappings = {}
@@ -71,14 +78,117 @@ class Database(object):
         etree: ElementTree object for KANJIDIC2
 
         """
-        pass
+        # Grab header
+        header = etree.find("header")
+        file_ver = header.find("file_version").text
+        db_ver = header.find("database_version").text
+        date = header.find("date_of_creation").text
+        self.tables['header'].insert(file_ver, db_ver, date)
+
+        # Iterate through characters
+        for character in etree.findall("character"):
+            # Character table
+            literal = character.find("literal").text
+
+            # Grab misc node - we'll store a few things from it in the
+            # main character table, too.
+            misc = character.find("misc")
+            grade = misc.find("grade")
+            grade = int(grade.text) if grade is not None else None
+            freq = misc.find("freq")
+            freq = int(freq.text) if freq is not None else None
+            jlpt = jlpt.find("freq")
+            jlpt = int(jlpt.text) if jlpt is not None else None
+
+            char_id = self.tables['character'].insert(literal, grade,
+                                                      freq, jlpt)
+
+            table = self.tables['codepoint']
+            codepoint = character.find("codepoint")
+            for cp_value in codepoint.findall("cp_value"):
+                value = cp_value.text
+                cp_type = cp_value.get("cp_type")
+                table.insert(char_id, cp_type, value)
+
+            table = self.tables['radical']
+            radical = character.find("radical")
+            for rad_value in radical.findall("rad_value"):
+                value = rad_value.text
+                rad_type = rad_value.get("rad_type")
+                table.insert(char_id, rad_type, value)
+
+            # Tables generated from <misc> begin here
+            table = self.tables['stroke_count']
+            for stroke_count in misc.findall("stroke_count"):
+                count = int(stroke_count.text)
+                table.insert(char_id, count)
+
+            table = self.tables['variant']
+            for variant in misc.findall("variant"):
+                value = variant.text
+                var_type = variant.get("var_type")
+                table.insert(char_id, var_type, value)
+
+            table = self.tables['rad_name']
+            for rad_name in misc.findall("rad_name"):
+                value = rad_name.text
+                table.insert(char_id, value)
+
+            # Remaining direct descendents of <character>...
+            dic_number = character.find("dic_number")
+            if dic_number is not None:
+                table = self.tables['dic_number']
+                for dic_ref in dic_number.findall("dic_ref"):
+                    dr_type = dic_ref.get("dr_type")
+                    m_vol = dic_ref.get("m_vol", None)
+                    m_page = dic_ref.get("m_page", None)
+                    value = dic_ref.text
+                    table.insert(char_id, dr_type, m_vol, m_page, value)
+
+            query_code = character.find("query_code")
+            if query_code is not None:
+                table = self.tables['query_code']
+                for q_code in query_code.findall("q_code"):
+                    qc_type = q_code.get("qc_type")
+                    skip_misclass = q_code.get("skip_misclass", None)
+                    value = q_code.text
+                    table.insert(char_id, qc_type, skip_misclass, value)
+
+            reading_meaning = character.find("reading_meaning")
+            if reading_meaning is not None:
+                table = self.tables['rmgroup']
+                for rmgroup in reading_meaning.findall("rmgroup"):
+                    group_id = table.insert(char_id)
+                    table = self.tables['reading']
+                    for reading in rmgroup.findall("reading"):
+                        r_type = reading.get("r_type")
+                        on_type = reading.get("on_type")
+                        r_status = reading.get("r_status")
+                        value = reading.text
+                        table.insert(group_id, r_type, on_type, r_status, value)
+                    table = self.tables['meaning']
+                    for meaning in rmgroup.findall("meaning"):
+                        lang = meaning.get("m_lang", "en")
+                        value = meaning.text
+                        table.insert(group_id, lang, value)
+                table = self.tables['nanori']
+                for nanori in reading_meaning.findall("nanori"):
+                    table.insert(char_id, nanori.text)
+
+
+class HeaderTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(file_version TEXT, "
+                    "database_version TEXT, "
+                    "date_of_creation TEXT)")
+    insert_query = "INSERT INTO %s VALUES (?, ?, ?)"
 
 
 class CharacterTable(Table):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER, literal TEXT, "
                     "grade INTEGER, freq INTEGER, jlpt INTEGER)")
-    insert_query = "INSERT INTO %s VALUES (NULL, ?)"
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
     index_queries = [
         "CREATE INDEX %s_literal ON %s (literal)",
         ]
@@ -99,8 +209,8 @@ class StrokeCountTable(Table):
 class DicNumberTable(Table):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER, fk INTEGER, "
-                    "type TEXT, m_vol TEXT, m_page TEXT)")
-    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+                    "type TEXT, m_vol TEXT, m_page TEXT, value TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
 
 
 class QueryCodeTable(Table):

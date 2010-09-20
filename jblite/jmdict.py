@@ -51,7 +51,7 @@ class Database(object):
             "gloss": GlossTable,     # key -> lang, g_gend, value, pri flag
             "links": LinksTable,     # key -> tag, desc, uri
             "bibl": BiblTable,       # key -> tag, txt
-            "entity": EntityTable,  # Info from JMdict XML entities
+            "entity": EntityTable,   # Info from JMdict XML entities
             }
 
         # Set up key/value and key/entity tables
@@ -115,7 +115,7 @@ class Database(object):
             entity_int_d[expansion] = i
 
         # Iterate through each entry
-        for i, entry in enumerate(etree.findall("entry")):
+        for entry in etree.findall("entry"):
 
             # entry table
             ent_seq = entry.find("ent_seq")
@@ -175,8 +175,8 @@ class Database(object):
                 for bibl in info.findall("bibl"):
                     bib_tag = links.find("bib_tag")
                     bib_txt = links.find("bib_txt")
-                    bib_tag = bib_tag.text if bib_tag is not None else ""
-                    bib_txt = bib_txt.text if bib_txt is not None else ""
+                    bib_tag = bib_tag.text if bib_tag is not None else None
+                    bib_txt = bib_txt.text if bib_txt is not None else None
                     self.tables["bibl"].insert(entry_id, bib_tag, bib_txt)
                 for etym in info.findall("etym"):
                     self.tables["etym"].insert(entry_id, etym.text)
