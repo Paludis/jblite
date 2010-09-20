@@ -21,7 +21,7 @@ Details about the SQL schema:
 
 Running the KANJIDIC2 conversion tool:
 
-    python -m jblite.jmdict <target.db> <JMdict|JMdict.gz>
+    python -m jblite.kd2 <target.db> <KANJIDIC2|KANJIDIC2.gz>
 
 No schema info yet, but it's far simpler than JMdict, so it shouldn't
 be so hard to figure out.
