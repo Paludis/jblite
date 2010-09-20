@@ -246,6 +246,7 @@ class ReadingTable(Table):
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
     index_queries = [
         "CREATE INDEX %s_fk ON %s (fk)",
+        "CREATE INDEX %s_value ON %s (value)",
         ]
 
 
@@ -256,6 +257,7 @@ class MeaningTable(Table):
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
     index_queries = [
         "CREATE INDEX %s_fk ON %s (fk)",
+        "CREATE INDEX %s_lang_value ON %s (lang, value)",
         ]
 
 
