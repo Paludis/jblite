@@ -74,13 +74,57 @@ class Database(object):
         pass
 
 
-class EntryTable(Table):
+class CharacterTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER PRIMARY KEY, ent_seq INTEGER)")
+                    "(id INTEGER, literal TEXT, "
+                    "grade INTEGER, freq INTEGER, jlpt INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?)"
     index_queries = [
-        "CREATE INDEX %s_seq ON %s (ent_seq)",
+        "CREATE INDEX %s_literal ON %s (literal)",
         ]
+
+
+class TypeValueTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER, fk INTEGER, "
+                    "type TEXT, value TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
+
+
+class StrokeCountTable(Table):
+    create_query = ("CREATE TABLE %s (id INTEGER, fk INTEGER, count INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
+
+
+class DicNumberTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER, fk INTEGER, "
+                    "type TEXT, m_vol TEXT, m_page TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+
+
+class QueryCodeTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER, fk INTEGER, "
+                    "type TEXT, skip_misclass TEXT, value TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+
+
+class RMGroupTable(Table):
+    create_query = ("CREATE TABLE %s (id INTEGER, fk INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?)"
+
+class ReadingTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER, fk INTEGER, "
+                    "type TEXT, on_type TEXT, r_status TEXT, value TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
+
+
+class MeaningTable(Table):
+    create_query = ("CREATE TABLE %s "
+                    "(id INTEGER, fk INTEGER, lang TEXT, value TEXT)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
 
 
 ######################################################################
