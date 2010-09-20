@@ -3,13 +3,9 @@ Copyright 2010 by Paul Goins
 Released under the two-clause OSI-approved BSD license (see COPYING.txt)
 
 
-This library allows conversion of JMdict (or JMdict.gz) into an SQLite
-database.  All "data" within JMdict (that is, everything except
-comments) should be preserved in the SQLite format.
-
-A converter for KANJIDIC2 is also in this package, but it is not
-currently supported or recommended.  I will be rewriting it when time
-allows.
+This library allows conversion of JMdict and KANJIDIC2 into SQLite
+databases.  All "data" within the original files (that is, everything
+except comments) should be preserved in the SQLite format.
 
 Documentation is lacking right now, but a few notes:
 
@@ -21,6 +17,14 @@ Running the JMdict conversion tool:
 Details about the SQL schema:
 
     jmdict.png or jmdict.dia: graph of the database layout
+
+
+Running the KANJIDIC2 conversion tool:
+
+    python -m jblite.jmdict <target.db> <JMdict|JMdict.gz>
+
+No schema info yet, but it's far simpler than JMdict, so it shouldn't
+be so hard to figure out.
 
 
 License of output: JMdict is property of The Electronic Dictionary
