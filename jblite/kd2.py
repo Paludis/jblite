@@ -24,13 +24,12 @@ class Database(object):
         if init_from_file is not None:
             raw_data = gzread(init_from_file)
 
-            entities = self._get_entities(raw_data)
             infile = StringIO(raw_data)
             etree = ElementTree(file=infile)
             infile.close()
 
             self._create_new_tables()
-            self._populate_database(etree, entities)
+            self._populate_database(etree)
             self.conn.commit()
 
     def search(self, query, pref_lang=None):
@@ -97,7 +96,7 @@ class Database(object):
             grade = int(grade.text) if grade is not None else None
             freq = misc.find("freq")
             freq = int(freq.text) if freq is not None else None
-            jlpt = jlpt.find("freq")
+            jlpt = misc.find("jlpt")
             jlpt = int(jlpt.text) if jlpt is not None else None
 
             char_id = self.tables['character'].insert(literal, grade,
@@ -186,7 +185,7 @@ class HeaderTable(Table):
 
 class CharacterTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER, literal TEXT, "
+                    "(id INTEGER PRIMARY KEY, literal TEXT, "
                     "grade INTEGER, freq INTEGER, jlpt INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
     index_queries = [
@@ -196,45 +195,68 @@ class CharacterTable(Table):
 
 class TypeValueTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER, fk INTEGER, "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, value TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 
 class StrokeCountTable(Table):
-    create_query = ("CREATE TABLE %s (id INTEGER, fk INTEGER, count INTEGER)")
+    create_query = ("CREATE TABLE %s (id INTEGER PRIMARY KEY, "
+                    "fk INTEGER, count INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 
 class DicNumberTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER, fk INTEGER, "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, m_vol TEXT, m_page TEXT, value TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 
 class QueryCodeTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER, fk INTEGER, "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, skip_misclass TEXT, value TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 
 class RMGroupTable(Table):
-    create_query = ("CREATE TABLE %s (id INTEGER, fk INTEGER)")
+    create_query = ("CREATE TABLE %s (id INTEGER PRIMARY KEY, fk INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 class ReadingTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER, fk INTEGER, "
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, on_type TEXT, r_status TEXT, value TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 
 class MeaningTable(Table):
     create_query = ("CREATE TABLE %s "
-                    "(id INTEGER, fk INTEGER, lang TEXT, value TEXT)")
+                    "(id INTEGER PRIMARY KEY, fk INTEGER, "
+                    "lang TEXT, value TEXT)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_fk ON %s (fk)",
+        ]
 
 
 ######################################################################
