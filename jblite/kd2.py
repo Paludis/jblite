@@ -53,12 +53,22 @@ class Database(object):
         entries_r = self.search_by_reading(unicode_query)
         entries_m = self.search_by_meaning(unicode_query,
                                            lang=lang)
+        entries_n = self.search_by_nanori(unicode_query)
 
         # DEBUG CODE
         print("READINGS:")
         if len(entries_r) == 0:
             print("No 'reading' results found.")
         for ent_id, literal in entries_r:
+            try:
+                print(u"ID: %d, literal: %s" % (ent_id, literal))
+            except UnicodeEncodeError:
+                print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
+
+        print("NANORI:")
+        if len(entries_n) == 0:
+            print("No 'nanori' results found.")
+        for ent_id, literal in entries_n:
             try:
                 print(u"ID: %d, literal: %s" % (ent_id, literal))
             except UnicodeEncodeError:
@@ -74,11 +84,13 @@ class Database(object):
                 print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
 
         # Results: character IDs
-        results = list(sorted([row[0] for row in (entries_r + entries_m)]))
+        results = list(sorted([row[0] for row in
+                               (entries_r + entries_m + entries_n)]))
 
         return results
 
     def search_by_reading(self, query):
+        # reading -> rmgroup -> character
         self.cursor.execute(
             "SELECT id, literal FROM character WHERE id IN "
             "(SELECT fk FROM rmgroup WHERE id IN "
@@ -86,7 +98,16 @@ class Database(object):
         rows = self.cursor.fetchall()
         return rows
 
+    def search_by_nanori(self, query):
+        # nanori -> character
+        self.cursor.execute(
+            "SELECT id, literal FROM character WHERE id IN "
+            "(SELECT fk FROM nanori WHERE value LIKE ?)", (query,))
+        rows = self.cursor.fetchall()
+        return rows
+
     def search_by_meaning(self, query, lang=None):
+        # meaning -> rmgroup -> character
         if lang is None:
             self.cursor.execute(
                 "SELECT id, literal FROM character WHERE id IN "
