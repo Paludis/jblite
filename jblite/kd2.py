@@ -263,11 +263,35 @@ class MeaningTable(Table):
 
 ######################################################################
 
+def parse_args():
+    import sys
+    from optparse import OptionParser
+    op = OptionParser(usage="%prog <db_filename> [search_query]")
+    op.add_option("-i", "--initialize",
+                  dest="init_fname", metavar="XML_SOURCE",
+                  help=_("Initialize database from file."))
+    options, args = op.parse_args()
+    if len(args) < 1:
+        op.print_help()
+        exit(-1)
+    return (options, args)
+
 def main():
-    if len(sys.argv) < 3:
-        print(_("Syntax: %s <db_filename> [xml_source]" % sys.argv[0]),
-              file=sys.stderr)
-    db = Database(sys.argv[1], init_from_file=sys.argv[2])
+    options, args = parse_args()
+    db_fname = args[0]
+
+    if options.init_fname is not None:
+        db = Database(db_fname, init_from_file=options.init_fname)
+    else:
+        db = Database(db_fname)
+
+    # Do search
+    if len(args) > 1:
+        # To be nice, we'll join all remaining args with spaces.
+        search_query = " ".join(args[1:])
+
+        results = db.search(search_query)
+        print(results)
 
 if __name__ == "__main__":
     main()
