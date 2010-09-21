@@ -72,3 +72,20 @@ reading:
 
 meaning:
   id INTEGER, fk INTEGER, lang TEXT, value TEXT
+
+Notes
+=====
+
+- Initial tests show indices to be seemingly unnecessary for KANJIDIC2
+  reading/meaning/nanori searches.  I do not know if this is true on
+  slower systems, but for the time being the default "%xxx%" pattern
+  search is adequate.
+
+- KANJIDIC2 uses special notation for kunyomi readings.
+  Specifically, - is used to note prefixes/suffixes, and . is used to
+  separate okurigana.
+
+  Likely it would be beneficial to make a special index table for
+  looking up kunyomi readings quickly.  The prefix/suffix marker
+  doesn't cause results to be dropped, but hte okurigana marker does,
+  and the user shouldn't need to supply (or know about) such details.
