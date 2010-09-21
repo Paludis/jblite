@@ -32,8 +32,74 @@ class Database(object):
             self._populate_database(etree)
             self.conn.commit()
 
-    def search(self, query, pref_lang=None):
-        raise NotImplementedError()
+    def search(self, query, lang=None):
+        # This method of getting the encoding might not be the best...
+        # but it works for now, and avoids hacks with
+        # setdefaultencoding.
+        encoding = sys.getfilesystemencoding()
+
+        wrapped_query = "%%%s%%" % query  # Wrap in wildcards
+        unicode_query = wrapped_query.decode(encoding)
+
+        if os.name == "nt":
+            print(u"Searching for \"%s\", lang=%s..." %
+                  (unicode_query, repr(lang)),
+                  file=sys.stderr)
+
+        # Do some search stuff here...
+
+        # 1. Find by reading
+
+        entries_r = self.search_by_reading(unicode_query)
+        entries_m = self.search_by_meaning(unicode_query,
+                                           lang=lang)
+
+        # DEBUG CODE
+        print("READINGS:")
+        if len(entries_r) == 0:
+            print("No 'reading' results found.")
+        for ent_id, literal in entries_r:
+            try:
+                print(u"ID: %d, literal: %s" % (ent_id, literal))
+            except UnicodeEncodeError:
+                print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
+
+        print("MEANINGS:")
+        if len(entries_m) == 0:
+            print("No 'meaning' results found.")
+        for ent_id, literal in entries_m:
+            try:
+                print(u"ID: %d, literal: %s" % (ent_id, literal))
+            except UnicodeEncodeError:
+                print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
+
+        # Results: character IDs
+        results = list(sorted([row[0] for row in (entries_r + entries_m)]))
+
+        return results
+
+    def search_by_reading(self, query):
+        self.cursor.execute(
+            "SELECT id, literal FROM character WHERE id IN "
+            "(SELECT fk FROM rmgroup WHERE id IN "
+            "(SELECT fk FROM reading WHERE value LIKE ?))", (query,))
+        rows = self.cursor.fetchall()
+        return rows
+
+    def search_by_meaning(self, query, lang=None):
+        if lang is None:
+            self.cursor.execute(
+                "SELECT id, literal FROM character WHERE id IN "
+                "(SELECT fk FROM rmgroup WHERE id IN "
+                "(SELECT fk FROM meaning WHERE value LIKE ?))", (query,))
+        else:
+            self.cursor.execute(
+                "SELECT id, literal FROM character WHERE id IN "
+                "(SELECT fk FROM rmgroup WHERE id IN "
+                "(SELECT fk FROM meaning WHERE lang = ? AND value LIKE ?))",
+                (lang, query))
+        rows = self.cursor.fetchall()
+        return rows
 
     def _create_table_objects(self):
         """Creates table objects.
@@ -264,12 +330,13 @@ class MeaningTable(Table):
 ######################################################################
 
 def parse_args():
-    import sys
     from optparse import OptionParser
     op = OptionParser(usage="%prog <db_filename> [search_query]")
     op.add_option("-i", "--initialize",
                   dest="init_fname", metavar="XML_SOURCE",
                   help=_("Initialize database from file."))
+    op.add_option("-l", "--lang",
+                  help=_("Specify preferred language for searching."))
     options, args = op.parse_args()
     if len(args) < 1:
         op.print_help()
@@ -290,8 +357,11 @@ def main():
         # To be nice, we'll join all remaining args with spaces.
         search_query = " ".join(args[1:])
 
-        results = db.search(search_query)
-        print(results)
+        if options.lang is not None:
+            results = db.search(search_query, lang=options.lang)
+        else:
+            results = db.search(search_query)
+        print("Result: %s" % repr(results))
 
 if __name__ == "__main__":
     main()
