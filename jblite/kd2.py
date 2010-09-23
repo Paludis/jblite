@@ -122,6 +122,61 @@ class Database(object):
         rows = self.cursor.fetchall()
         return rows
 
+    def lookup_by_id(self, character_id):
+
+        def get_single_col(rows):
+            return [row[0] for row in rows]
+
+        def skip_id(rows):
+            return [row[1:] for row in rows]
+
+        result = {}
+
+        # lookup returns a list of rows, but there'll only be one here...
+        literal, grade, freq, jlpt = \
+            self.tables['character'].lookup(id=character_id)[0]
+        result['literal'] = literal
+        result['grade'] = grade
+        result['freq'] = freq
+        result['jlpt'] = jlpt
+
+        result['codepoints'] = \
+            skip_id(self.tables['codepoint'].lookup(fk=character_id))
+        result['radicals'] = \
+            skip_id(self.tables['radical'].lookup(fk=character_id))
+
+        # Strokes: ignore ID column, take only stroke count.
+        result['strokes'] = \
+            get_single_col(skip_id(
+                self.tables['stroke_count'].lookup(fk=character_id)))
+
+        result['variants'] = \
+            skip_id(self.tables['variant'].lookup(fk=character_id))
+        result['rad_names'] = \
+            skip_id(self.tables['rad_name'].lookup(fk=character_id))
+        result['dic_numbers'] = \
+            skip_id(self.table['dic_number'].lookup(fk=character_id))
+        result['query_codes'] = \
+            skip_id(self.table['query_code'].lookup(fk=character_id))
+
+        # Readings/meanings
+        rmgroup_ids = get_single_col(
+            self.tables['rmgroup'].lookup(fk=character_id))
+        rmgroups = []
+        for rmgroup_id in rmgroup_ids:
+            rmgroup = {}
+            rmgroup['readings'] = \
+                skip_id(self.tables['reading'].lookup(fk=rmgroup_id))
+            rmgroup['meanings'] = \
+                skip_id(self.tables['meaning'].lookup(fk=rmgroup_id))
+            rmgroups.append(rmgroup)
+        result['rmgroups'] = rmgroups
+
+        result['nanori'] = \
+            skip_id(self.tables['nanori'].lookup(fk=character_id))
+
+        return result
+
     def _create_table_objects(self):
         """Creates table objects.
 
