@@ -30,6 +30,7 @@ class Database(object):
 
             self._create_new_tables()
             self._populate_database(etree)
+            self._create_index_tables()
             self.conn.commit()
 
     def search(self, query, lang=None):
@@ -209,7 +210,7 @@ class Database(object):
     def _create_new_tables(self):
         """(Re)creates the database tables."""
         for tbl, tbl_obj in self.tables.iteritems():
-            self.cursor.execute("DROP TABLE IF EXISTS %s" % tbl)
+            self._drop_table(tbl)
             tbl_obj.create()
 
     def _populate_database(self, etree):
@@ -316,6 +317,63 @@ class Database(object):
                 for nanori in reading_meaning.findall("nanori"):
                     table.insert(char_id, nanori.text)
 
+    def _drop_table(self, name):
+        self.cursor.execute("DROP TABLE IF EXISTS %s" % name)
+
+    def _create_index_tables(self):
+        """Creates extra tables to help with common searches.
+
+        Supplementary tables include:
+
+        1. Reading search table: kun-yomi to character ID.  Kun-yomi
+           is modified for easier searching (no "." or "-" markers).
+
+        """
+        self._create_reading_search_table()
+
+    def _create_reading_search_table(self):
+        """Creates "sanitized" reading to character ID search table."""
+
+        # Get all kunyomi strings and their foreign keys
+        self.cursor.execute('SELECT fk, value FROM reading '
+                            'WHERE type="ja_kun"')
+        rows = self.cursor.fetchall()
+        reading_fks, values = zip(*rows)  # unzip idiom (see zip doc)
+
+        # Sanitize strings by removing "." and "-"
+        values = [value.replace(u".", u"").replace(u"-", u"")
+                  for value in values]
+
+        # Resolve foreign keys to reading group foreign keys
+        # (character IDs)
+        d = {}  # kunyomi fk to reading group fk mapping
+
+        # Get all reading group IDs and their foreign keys (character IDs)
+        # (reading group ID is a reading FK (which we have),
+        #  and reading group FK is the character ID (which we want).)
+        self.cursor.execute("SELECT id, fk FROM rmgroup")
+        for _id, fk in self.cursor.fetchall():
+            d[fk] = _id
+
+        # Convert reading group foreign keys from the readings into
+        # character IDs.
+        entry_ids = [d[reading_fk] for reading_fk in reading_fks]
+
+        # Create new table
+        tbl_name = "kunyomi_lookup"
+        self.tables[tbl_name] = tbl = ReadingLookupTable(self.cursor, tbl_name)
+        self._drop_table(tbl_name)
+        tbl.create()
+
+        # Store all sanitized strings and their keys in the table
+        rows = zip(values, entry_ids)
+        tbl.insertmany(rows)
+
+
+######################################################################
+# KANJIDIC2 data tables
+######################################################################
+
 
 class HeaderTable(Table):
     create_query = ("CREATE TABLE %s "
@@ -401,6 +459,20 @@ class MeaningTable(Table):
         "CREATE INDEX %s_fk ON %s (fk)",
         "CREATE INDEX %s_lang_value ON %s (lang, value)",
         ]
+
+
+######################################################################
+# Index tables (not part of actual KANJIDIC2)
+######################################################################
+
+
+class ReadingLookupTable(Table):
+    """Maps reading to character IDs."""
+    # Used for: kunyomi (KANJIDIC2 r_type==ja_kun)
+    create_query = ("CREATE TABLE %s "
+                    "(reading TEXT PRIMARY KEY, character_id INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (?, ?)"
+
 
 
 ######################################################################

@@ -56,6 +56,23 @@ class Table(object):
             raise
         return self.cursor.lastrowid
 
+    def insertmany(self, *args):
+        """Runs a multi-row insert with the specified arguments.
+
+        Arguments are treated similarly to the DB-API 2.0 executemany
+        statement: this function takes a list of argument lists.
+
+        There is no return value.
+
+        """
+        query = self._get_insert_query()
+        try:
+            self.cursor.executemany(query, args)
+        except:
+            print("Exception occurred on insertmany: query=%s, args=%s" %
+                  (repr(query), repr(args)))
+            raise
+
     def _get_create_query(self):
         if self.table_name is None:
             raise ValueError(
