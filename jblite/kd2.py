@@ -407,7 +407,7 @@ class MeaningTable(Table):
 
 def parse_args():
     from optparse import OptionParser
-    op = OptionParser(usage="%prog <db_filename> [search_query]")
+    op = OptionParser(usage="%prog [options] <db_filename> [search_query]")
     op.add_option("-i", "--initialize",
                   dest="init_fname", metavar="XML_SOURCE",
                   help=_("Initialize database from file."))
