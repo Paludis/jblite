@@ -28,8 +28,12 @@ class Database(object):
             etree = ElementTree(file=infile)
             infile.close()
 
+            # Create the core database
             self._create_new_tables()
             self._populate_database(etree)
+            self.conn.commit()
+
+            # Create supplemental indices
             self._create_index_tables()
             self.conn.commit()
 
@@ -353,7 +357,7 @@ class Database(object):
         #  and reading group FK is the character ID (which we want).)
         self.cursor.execute("SELECT id, fk FROM rmgroup")
         for _id, fk in self.cursor.fetchall():
-            d[fk] = _id
+            d[_id] = fk
 
         # Convert reading group foreign keys from the readings into
         # character IDs.
@@ -470,8 +474,12 @@ class ReadingLookupTable(Table):
     """Maps reading to character IDs."""
     # Used for: kunyomi (KANJIDIC2 r_type==ja_kun)
     create_query = ("CREATE TABLE %s "
-                    "(reading TEXT PRIMARY KEY, character_id INTEGER)")
-    insert_query = "INSERT INTO %s VALUES (?, ?)"
+                    "(id INTEGER PRIMARY KEY, "
+                    "reading TEXT, character_id INTEGER)")
+    insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
+    index_queries = [
+        "CREATE INDEX %s_reading ON %s (reading)",
+        ]
 
 
 

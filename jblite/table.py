@@ -67,7 +67,7 @@ class Table(object):
         """
         query = self._get_insert_query()
         try:
-            self.cursor.executemany(query, args)
+            self.cursor.executemany(query, *args)
         except:
             print("Exception occurred on insertmany: query=%s, args=%s" %
                   (repr(query), repr(args)))
