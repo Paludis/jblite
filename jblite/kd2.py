@@ -13,6 +13,10 @@ import gettext
 gettext.install("jblite")
 
 
+# Not sure what the best fn for this is; this may change later...
+get_encoding = sys.getfilesystemencoding
+
+
 class Database(object):
 
     """Top level object for SQLite 3-based KANJIDIC2 database."""
@@ -41,7 +45,7 @@ class Database(object):
         # This method of getting the encoding might not be the best...
         # but it works for now, and avoids hacks with
         # setdefaultencoding.
-        encoding = sys.getfilesystemencoding()
+        encoding = get_encoding()
 
         wrapped_query = "%%%s%%" % query  # Wrap in wildcards
         unicode_query = wrapped_query.decode(encoding)
@@ -181,6 +185,15 @@ class Database(object):
             skip_id(self.tables['nanori'].lookup(fk=character_id))
 
         return result
+
+    def lookup_by_literal(self, literal):
+        self.cursor.execute("SELECT id FROM character WHERE literal = ?",
+                            (literal,))
+        rows = self.cursor.fetchall()
+        if len(rows) < 1:
+            return None
+        else:
+            return rows[0][0]
 
     def _create_table_objects(self):
         """Creates table objects.
@@ -491,11 +504,19 @@ def parse_args():
     op.add_option("-i", "--initialize",
                   dest="init_fname", metavar="XML_SOURCE",
                   help=_("Initialize database from file."))
-    op.add_option("-l", "--lang",
+    op.add_option("-s", "--search", action="store_true",
+                  help=_("Search for kanji by readings or meanings"))
+    op.add_option("-l", "--lookup", action="store_true",
+                  help=_("Look up exact character"))
+    op.add_option("-L", "--lang",
                   help=_("Specify preferred language for searching."))
     options, args = op.parse_args()
     if len(args) < 1:
         op.print_help()
+        exit(-1)
+    if options.lookup and options.search:
+        print(_("Cannot --lookup and --search at the same time."),
+              file=sys.stderr)
         exit(-1)
     return (options, args)
 
@@ -508,8 +529,8 @@ def main():
     else:
         db = Database(db_fname)
 
-    # Do search
-    if len(args) > 1:
+    if options.search and len(args) > 1:
+        # Do search
         # To be nice, we'll join all remaining args with spaces.
         search_query = " ".join(args[1:])
 
@@ -518,6 +539,21 @@ def main():
         else:
             results = db.search(search_query)
         print("Result: %s" % repr(results))
+    elif options.lookup and len(args) > 1:
+        # Do lookup
+        print("Doing lookup...")
+        encoding = get_encoding()
+        lookup_query = args[1].decode(encoding)
+        results = []
+        for character in lookup_query:
+            result = db.lookup_by_literal(character)
+            if result is not None:
+                results.append(result)
+        print("Result: %s" % repr(results))
+
+    # To do: visualize results
+    # Not as important; now we know we can at least do our needed
+    # lookups...
 
 if __name__ == "__main__":
     main()
