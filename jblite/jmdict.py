@@ -13,6 +13,10 @@ import gettext
 gettext.install("jblite")
 
 
+# Copied from kd2.py...
+get_encoding = sys.getfilesystemencoding
+
+
 class Database(object):
 
     """Top level object for SQLite 3-based JMdict database."""
@@ -33,8 +37,74 @@ class Database(object):
             self._populate_database(etree, entities)
             self.conn.commit()
 
-    def search(self, query, pref_lang=None):
-        raise NotImplementedError()
+    def search(self, query, lang=None):
+        # Search
+        # Two main methods: to and from Japanese.
+        # 1. Guess which direction we're searching.
+        # 2. Search preferred method.
+        # 3. Search remaining method.
+        entries_from = self.search_from_japanese(query)
+        entries_to = self.search_to_japanese(query, lang=lang)
+
+        results = entries_from + entries_to
+        return results
+
+    def search_from_japanese(query):
+        # Japanese search locations:
+        # 1. Kanji elements
+        # 2. Reading elements
+        # 3. Any indices (none yet)
+        #
+        # Preferred orderings
+        # 1. Location of query in result
+        #    1. Exact match
+        #    2. Begins with
+        #    3. Anywhere
+        # 2. Ranking of usage (the (P) option in EDICT, for example)
+        #
+        # FOR NOW: just get the searching working.
+        # This puts us on roughly the same level as J-Ben 1.2.x.
+        encoding = get_encoding()
+        wrapped_query = "%%%s%%" % query  # Wrap in wildcards
+        unicode_query = wrapped_query.decode(encoding)
+
+        entries_by_keb = self._search_keb(unicode_query)
+        entries_by_reb = self._search_reb(unicode_query)
+        entries_by_indices = self._search_indices_from_ja(unicode_query)
+
+    def _search_keb(unicode_query):
+        #self.cursor.execute(
+        #    "SELECT id, literal FROM character WHERE id IN "
+        #    "(SELECT fk FROM rmgroup WHERE id IN "
+        #    "(SELECT fk FROM reading WHERE value LIKE ?))", (query,))
+        #rows = self.cursor.fetchall()
+        #return rows
+        raise NotImplementedError
+
+    def _search_reb(unicode_query):
+        raise NotImplementedError
+
+    def _search_indices_from_ja(unicode_query):
+        raise NotImplementedError
+
+    def search_to_japanese(query, lang):
+        # Foreign language search locations:
+        # 1. Glosses
+        # 2. Any indices (none yet)
+        #
+        # For other considerations, see search_from_japanese().
+        encoding = get_encoding()
+        wrapped_query = "%%%s%%" % query  # Wrap in wildcards
+        unicode_query = wrapped_query.decode(encoding)
+
+        entries_by_glosses = self._search_glosses(unicode_query, lang)
+        entries_by_indices = self._search_indices_to_ja(unicode_query, lang)
+
+    def _search_glosses(unicode_query, lang):
+        raise NotImplementedError
+
+    def _search_indices_to_ja(unicode_query, lang):
+        raise NotImplementedError
 
     def _create_table_objects(self):
         """Creates table objects.

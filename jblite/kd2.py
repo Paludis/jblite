@@ -13,7 +13,9 @@ import gettext
 gettext.install("jblite")
 
 
-# Not sure what the best fn for this is; this may change later...
+# This method of getting the encoding might not be the best...
+# but it works for now, and avoids hacks with
+# setdefaultencoding.
 get_encoding = sys.getfilesystemencoding
 
 
@@ -42,11 +44,7 @@ class Database(object):
             self.conn.commit()
 
     def search(self, query, lang=None):
-        # This method of getting the encoding might not be the best...
-        # but it works for now, and avoids hacks with
-        # setdefaultencoding.
         encoding = get_encoding()
-
         wrapped_query = "%%%s%%" % query  # Wrap in wildcards
         unicode_query = wrapped_query.decode(encoding)
 
