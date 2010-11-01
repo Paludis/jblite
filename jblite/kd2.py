@@ -517,6 +517,7 @@ def main():
     else:
         db = Database(db_fname)
 
+    results = []
     if options.search and len(args) > 1:
         # Do search
         # To be nice, we'll join all remaining args with spaces.
@@ -526,10 +527,8 @@ def main():
             results = db.search(search_query, lang=options.lang)
         else:
             results = db.search(search_query)
-        print("Result: %s" % repr(results))
     elif options.lookup and len(args) > 1:
         # Do lookup
-        print("Doing lookup...")
         encoding = get_encoding()
         lookup_query = args[1].decode(encoding)
         results = []
@@ -537,11 +536,18 @@ def main():
             result = db.lookup_by_literal(character)
             if result is not None:
                 results.append(result)
-        print("Result: %s" % repr(results))
 
     # To do: visualize results
     # Not as important; now we know we can at least do our needed
     # lookups...
+    if len(results) > 0:
+        from pprint import pprint
+        for result in results:
+            entry = db.lookup_by_id(result)
+            pprint(entry)
+            print()
+    else:
+        print(_("No results found."))
 
 if __name__ == "__main__":
     main()

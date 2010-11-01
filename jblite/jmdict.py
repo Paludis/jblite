@@ -1,3 +1,11 @@
+"""JMdict support."""
+
+# This could be a bit cleaner if I used something like SQLalchemy
+# perhaps...  The create/insert/index bits were done decent enough,
+# but lookups are done in straight SQL due to the potential
+# complexity, and this sadly does break the abstraction of the table
+# objects...
+
 from __future__ import print_function
 from __future__ import with_statement
 
@@ -161,6 +169,144 @@ class Database(object):
 
     def _search_indices_to_ja(self, unicode_query, lang):
         raise NotImplementedError
+
+    def query_db(self, *args, **kwargs):
+        """Helper.  Wraps the execute/fetchall idiom on the DB cursor."""
+        self.cursor.execute(*args, **kwargs)
+        return self.cursor.fetchall()
+
+    def _convert_entities(self, entities):
+        """Expands a list of entities.
+
+        Returns a list of the entity expansions.  The order of the
+        returned expansions matches the order of the input entities.
+
+        """
+        args = list(sorted(set(entities)))
+        template = ", ".join(["?"] * len(args))
+        query = "SELECT entity, expansion " \
+            "FROM entity WHERE entity IN (%s)" % template
+        rows = self.query_db(query, args)
+        d = {}
+        for entity, expansion in rows:
+            d[entity] = expansion
+        result = [d[entity] for entity in entities]
+        return result
+
+    def lookup(self, entry_id):
+        """Creates an entry object.
+
+        Returns a dictionary containing all data for the entry.
+
+        """
+        # Basically, this is the reverse of _populate_database for a
+        # single entry.
+        #
+        # Structure
+        # =========
+        #
+        # entry -> k_ele -> ke_inf
+        #                -> ke_pri
+        #       -> r_ele -> re_restr
+        #                -> re_inf
+        #                -> re_pri
+        #       -> links
+        #       -> bibl
+        #       -> etym
+        #       -> audit
+        #       -> sense -> (pos, field, misc, dial, stagk, stagr,
+        #                    xref, ant, s_inf, example, lsource)
+        #                -> gloss -> pri
+
+        result = {}
+
+        # AT LEAST (for now...):
+        # 1. readings
+        # 1.1. k_ele
+        query = "SELECT id, value FROM k_ele WHERE fk = ?"
+        args = (entry_id,)
+        rows = self.query_db(query, args)
+        k_ele = []
+        for k_ele_id, keb in rows:
+            # ke_inf
+            query = "SELECT entity FROM ke_inf WHERE fk = ?"
+            args = (k_ele_id,)
+            rows = self.query_db(query, args)
+            ke_inf = self._convert_entities([row[0] for row in rows])
+
+            # ke_pri
+            query = "SELECT value FROM ke_pri WHERE fk = ?"
+            args = (k_ele_id,)
+            rows = self.query_db(query, args)
+            ke_pri = [row[0] for row in rows]
+
+            # merge results
+            d = {}
+            d['keb'] = keb
+            d['ke_pri'] = ke_pri
+            d['ke_inf'] = ke_inf
+            k_ele.append(d)
+        result['k_ele'] = k_ele
+        # 1.2. r_ele
+        query = "SELECT id, value, nokanji FROM r_ele WHERE fk = ?"
+        args = (entry_id,)
+        rows = self.query_db(query, args)
+        r_ele = []
+        for r_ele_id, reb, nokanji in rows:
+            # re_restr
+            query = "SELECT value FROM re_restr WHERE fk = ?"
+            args = (r_ele_id,)
+            rows = self.query_db(query, args)
+            re_restr = [row[0] for row in rows]
+
+            # re_inf
+            query = "SELECT entity FROM re_inf WHERE fk = ?"
+            args = (r_ele_id,)
+            rows = self.query_db(query, args)
+            re_inf = self._convert_entities([row[0] for row in rows])
+
+            # re_pri
+            query = "SELECT value FROM re_pri WHERE fk = ?"
+            args = (r_ele_id,)
+            rows = self.query_db(query, args)
+            re_pri = [row[0] for row in rows]
+
+            # merge results
+            d = {}
+            d['reb'] = reb
+            d['nokanji'] = True if nokanji == 1 else False
+            d['re_restr'] = re_restr
+            d['re_pri'] = re_pri
+            d['re_inf'] = re_inf
+            r_ele.append(d)
+        result['r_ele'] = r_ele
+
+        # 2. glosses
+        query = "SELECT id FROM sense WHERE fk = ?"
+        args = (entry_id,)
+        rows = self.query_db(query, args)
+        sense_ids = [row[0] for row in rows]
+
+        sense = []
+        for sense_id in sense_ids:
+            # gloss
+            query = "SELECT value, lang, g_gend, pri FROM gloss WHERE fk = ?"
+            args = (sense_id,)
+            rows = self.query_db(query, args)
+            gloss = [{"value": value,
+                      "lang": lang,
+                      "g_gend": g_gend,
+                      "pri": pri}
+                     for value, lang, g_gend, pri in rows]
+            d = {}
+            d['gloss'] = gloss
+            sense.append(d)
+        result['sense'] = sense
+
+
+
+        
+        return result
 
     def _create_table_objects(self):
         """Creates table objects.
@@ -495,19 +641,11 @@ def parse_args():
     op.add_option("-i", "--initialize",
                   dest="init_fname", metavar="XML_SOURCE",
                   help=_("Initialize database from file."))
-    op.add_option("-s", "--search", action="store_true",
-                  help=_("Search for kanji by readings or meanings"))
-    op.add_option("-l", "--lookup", action="store_true",
-                  help=_("Look up exact character"))
     op.add_option("-L", "--lang",
                   help=_("Specify preferred language for searching."))
     options, args = op.parse_args()
     if len(args) < 1:
         op.print_help()
-        exit(-1)
-    if options.lookup and options.search:
-        print(_("Cannot --lookup and --search at the same time."),
-              file=sys.stderr)
         exit(-1)
     return (options, args)
 
@@ -521,31 +659,24 @@ def main():
     else:
         db = Database(db_fname)
 
-    if options.search and len(args) > 1:
+    results = []
+    if len(args) > 1:
         # Do search
         # To be nice, we'll join all remaining args with spaces.
         search_query = " ".join(args[1:])
-
         if options.lang is not None:
             results = db.search(search_query, lang=options.lang)
         else:
             results = db.search(search_query)
-        print("Result: %s" % repr(results))
-    elif options.lookup and len(args) > 1:
-        # Do lookup
-        print("Doing lookup...")
-        encoding = get_encoding()
-        lookup_query = args[1].decode(encoding)
-        results = []
-        for character in lookup_query:
-            result = db.lookup_by_literal(character)
-            if result is not None:
-                results.append(result)
-        print("Result: %s" % repr(results))
 
-    # To do: visualize results
-    # Not as important; now we know we can at least do our needed
-    # lookups...
+    if len(results) > 0:
+        from pprint import pprint
+        for result in results:
+            entry = db.lookup(result)
+            pprint(entry)
+            print()
+    else:
+        print(_("No results found."))
 
 if __name__ == "__main__":
     main()
