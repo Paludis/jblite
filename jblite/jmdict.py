@@ -20,6 +20,9 @@ import gettext
 #_ = t.ugettext
 gettext.install("jblite")
 
+# Full expansion of xml:lang
+XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
+
 
 # Copied from kd2.py...
 get_encoding = sys.getfilesystemencoding
@@ -39,6 +42,7 @@ class Entry(object):
         if len(k_eles) > 0:
             lines.append(_(u"Kanji readings:"))
         for k_ele_index, k_ele in enumerate(k_eles):
+            k_ele_index += 1
             lines.append(_(u"  Reading %d:") % k_ele_index)
             lines.append(_(u"    Blob: %s") % k_ele['keb'])
 
@@ -46,6 +50,7 @@ class Entry(object):
         if len(r_eles) > 0:
             lines.append(_(u"Kana readings:"))
         for r_ele_index, r_ele in enumerate(r_eles):
+            r_ele_index += 1
             lines.append(_(u"  Reading %d:") % r_ele_index)
             lines.append(_(u"    Blob: %s") % r_ele['reb'])
 
@@ -55,7 +60,7 @@ class Entry(object):
         for sense_index, sense in enumerate(senses):
             sense_index += 1
             lines.append(_(u"  Sense %d:") % sense_index)
-            glosses = sense.get("gloss", [])
+            glosses = sense.get("gloss", {})
             # Output glosses by language
             for lang in sorted(glosses.keys()):
                 values = glosses[lang]
@@ -517,7 +522,7 @@ class Database(object):
                         self.tables[elem_name].insert(sense_id, entity_id)
 
                 for lsource in sense.findall("lsource"):
-                    lang = lsource.get("xml:lang", "eng")
+                    lang = lsource.get(XML_LANG, "eng")
                     ls_type = lsource.get("ls_type")  # implied "full" if absent, "part" otherwise
                     ls_wasei = lsource.get("ls_wasei") # usually "y"... just a flag.
 
@@ -534,7 +539,7 @@ class Database(object):
                     self.tables["lsource"].insert(sense_id,
                                                   lang, partial, wasei)
                 for gloss in sense.findall("gloss"):
-                    lang = gloss.get("xml:lang", "eng")
+                    lang = gloss.get(XML_LANG, "eng")
                     g_gend = gloss.get("g_gend")
                     pri_list = gloss.getchildren()
                     if len(pri_list) > 1:
