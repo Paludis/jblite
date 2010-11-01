@@ -49,7 +49,7 @@ class Database(object):
         results = entries_from + entries_to
         return results
 
-    def search_from_japanese(query):
+    def search_from_japanese(self, query):
         # Japanese search locations:
         # 1. Kanji elements
         # 2. Reading elements
@@ -80,7 +80,7 @@ class Database(object):
                     results.append(o)
         return results
 
-    def _search_keb(unicode_query):
+    def _search_keb(self, unicode_query):
         """Searches kanji elements (Japanese readings with kanji).
 
         Returns a list of entry IDs.
@@ -93,7 +93,7 @@ class Database(object):
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 
-    def _search_reb(unicode_query):
+    def _search_reb(self, unicode_query):
         """Searches reading elements (Japanese readings without kanji).
 
         Returns a list of entry IDs.
@@ -106,10 +106,10 @@ class Database(object):
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 
-    def _search_indices_from_ja(unicode_query):
+    def _search_indices_from_ja(self, unicode_query):
         raise NotImplementedError
 
-    def search_to_japanese(query, lang):
+    def search_to_japanese(self, query, lang):
         # Foreign language search locations:
         # 1. Glosses
         # 2. Any indices (none yet)
@@ -131,7 +131,7 @@ class Database(object):
         return results
 
 
-    def _search_glosses(unicode_query, lang):
+    def _search_glosses(self, unicode_query, lang):
         """Searches foreign language glosses.
 
         If lang is not None, only entries which match the lang
@@ -159,7 +159,7 @@ class Database(object):
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 
-    def _search_indices_to_ja(unicode_query, lang):
+    def _search_indices_to_ja(self, unicode_query, lang):
         raise NotImplementedError
 
     def _create_table_objects(self):
@@ -489,11 +489,63 @@ class EntityTable(Table):
 
 ######################################################################
 
-def main():
-    if len(sys.argv) < 3:
-        print(_("Syntax: %s <db_filename> [xml_source]" % sys.argv[0]),
+def parse_args():
+    from optparse import OptionParser
+    op = OptionParser(usage="%prog [options] <db_filename> [search_query]")
+    op.add_option("-i", "--initialize",
+                  dest="init_fname", metavar="XML_SOURCE",
+                  help=_("Initialize database from file."))
+    op.add_option("-s", "--search", action="store_true",
+                  help=_("Search for kanji by readings or meanings"))
+    op.add_option("-l", "--lookup", action="store_true",
+                  help=_("Look up exact character"))
+    op.add_option("-L", "--lang",
+                  help=_("Specify preferred language for searching."))
+    options, args = op.parse_args()
+    if len(args) < 1:
+        op.print_help()
+        exit(-1)
+    if options.lookup and options.search:
+        print(_("Cannot --lookup and --search at the same time."),
               file=sys.stderr)
-    db = Database(sys.argv[1], init_from_file=sys.argv[2])
+        exit(-1)
+    return (options, args)
+
+def main():
+    # Copied verbatim from kd2.py.
+    options, args = parse_args()
+    db_fname = args[0]
+
+    if options.init_fname is not None:
+        db = Database(db_fname, init_from_file=options.init_fname)
+    else:
+        db = Database(db_fname)
+
+    if options.search and len(args) > 1:
+        # Do search
+        # To be nice, we'll join all remaining args with spaces.
+        search_query = " ".join(args[1:])
+
+        if options.lang is not None:
+            results = db.search(search_query, lang=options.lang)
+        else:
+            results = db.search(search_query)
+        print("Result: %s" % repr(results))
+    elif options.lookup and len(args) > 1:
+        # Do lookup
+        print("Doing lookup...")
+        encoding = get_encoding()
+        lookup_query = args[1].decode(encoding)
+        results = []
+        for character in lookup_query:
+            result = db.lookup_by_literal(character)
+            if result is not None:
+                results.append(result)
+        print("Result: %s" % repr(results))
+
+    # To do: visualize results
+    # Not as important; now we know we can at least do our needed
+    # lookups...
 
 if __name__ == "__main__":
     main()
