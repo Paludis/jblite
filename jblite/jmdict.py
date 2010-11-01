@@ -714,7 +714,9 @@ def main():
     if len(results) > 0:
         from pprint import pprint
         encoding = get_encoding()
-        for result in results:
+        for index, result in enumerate(results):
+            index += 1
+            print(_("[Entry %d]") % index)
             entry = db.lookup(result)
             try:
                 print(unicode(entry).encode(encoding))
