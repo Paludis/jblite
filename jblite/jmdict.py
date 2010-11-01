@@ -30,7 +30,7 @@ class Entry(object):
     def __init__(self, data_d):
         self._d = data_d
 
-    def __str__(self):
+    def __unicode__(self):
         """Basic string representation of the entry."""
         d = self._d
         lines = []
@@ -40,14 +40,14 @@ class Entry(object):
             lines.append(_(u"Kanji readings:"))
         for k_ele_index, k_ele in enumerate(k_eles):
             lines.append(_(u"  Reading %d:") % k_ele_index)
-            lines.append(_(u"    Blob: %s") % k_eke['keb'])
+            lines.append(_(u"    Blob: %s") % k_ele['keb'])
 
         r_eles = d.get("r_ele", [])
         if len(r_eles) > 0:
             lines.append(_(u"Kana readings:"))
         for r_ele_index, r_ele in enumerate(r_eles):
             lines.append(_(u"  Reading %d:") % r_ele_index)
-            lines.append(_(u"    Blob: %s") % r_eke['reb'])
+            lines.append(_(u"    Blob: %s") % r_ele['reb'])
 
         senses = d.get("sense", [])
         if len(senses) > 0:
@@ -713,9 +713,13 @@ def main():
 
     if len(results) > 0:
         from pprint import pprint
+        encoding = get_encoding()
         for result in results:
             entry = db.lookup(result)
-            print(str(entry))
+            try:
+                print(unicode(entry).encode(encoding))
+            except:
+                print(repr(entry))
             print()
     else:
         print(_("No results found."))
