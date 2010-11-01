@@ -292,11 +292,11 @@ class Database(object):
             ke_pri = [row[0] for row in rows]
 
             # merge results
-            d = {}
-            d['keb'] = keb
-            d['ke_pri'] = ke_pri
-            d['ke_inf'] = ke_inf
-            k_ele.append(d)
+            k_ele_d = {}
+            k_ele_d['keb'] = keb
+            k_ele_d['ke_pri'] = ke_pri
+            k_ele_d['ke_inf'] = ke_inf
+            k_ele.append(k_ele_d)
         result['k_ele'] = k_ele
         # 1.2. r_ele
         query = "SELECT id, value, nokanji FROM r_ele WHERE fk = ?"
@@ -323,13 +323,13 @@ class Database(object):
             re_pri = [row[0] for row in rows]
 
             # merge results
-            d = {}
-            d['reb'] = reb
-            d['nokanji'] = True if nokanji == 1 else False
-            d['re_restr'] = re_restr
-            d['re_pri'] = re_pri
-            d['re_inf'] = re_inf
-            r_ele.append(d)
+            r_ele_d = {}
+            r_ele_d['reb'] = reb
+            r_ele_d['nokanji'] = True if nokanji == 1 else False
+            r_ele_d['re_restr'] = re_restr
+            r_ele_d['re_pri'] = re_pri
+            r_ele_d['re_inf'] = re_inf
+            r_ele.append(r_ele_d)
         result['r_ele'] = r_ele
 
         # 2. glosses
@@ -349,8 +349,9 @@ class Database(object):
                 lst = gloss.setdefault(lang, [])
                 lst.append(
                     {"value": value, "g_gend": g_gend, "pri": pri})
-            d['gloss'] = gloss
-            sense.append(d)
+            sense_d = {}
+            sense_d['gloss'] = gloss
+            sense.append(sense_d)
         result['sense'] = sense
 
         return Entry(result)
