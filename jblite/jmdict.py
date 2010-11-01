@@ -40,12 +40,14 @@ class Entry(object):
             lines.append(_(u"Kanji readings:"))
         for k_ele_index, k_ele in enumerate(k_eles):
             lines.append(_(u"  Reading %d:") % k_ele_index)
+            lines.append(_(u"    Blob: %s") % k_eke['keb'])
 
         r_eles = d.get("r_ele", [])
         if len(r_eles) > 0:
             lines.append(_(u"Kana readings:"))
         for r_ele_index, r_ele in enumerate(r_eles):
             lines.append(_(u"  Reading %d:") % r_ele_index)
+            lines.append(_(u"    Blob: %s") % r_eke['reb'])
 
         senses = d.get("sense", [])
         if len(senses) > 0:
