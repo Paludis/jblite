@@ -349,30 +349,20 @@ class Database(object):
     def _create_reading_search_table(self):
         """Creates "sanitized" reading to character ID search table."""
 
-        # Get all kunyomi strings and their foreign keys
-        self.cursor.execute('SELECT fk, value FROM reading '
-                            'WHERE type="ja_kun"')
+        # Mapping is from reading to character ID...
+        # r.fk -> rg.id, rg.fk -> c.id.
+        query = (
+            "SELECT r.value, c.id "
+            "FROM reading r, rmgroup rg, character c "
+            'WHERE r.type = "ja_kun" AND r.fk = rg.id AND rg.fk = c.id'
+            )
+        self.cursor.execute(query)
         rows = self.cursor.fetchall()
-        reading_fks, values = zip(*rows)  # unzip idiom (see zip doc)
+        values, ids = zip(*rows)  # unzip idiom (see zip doc)
 
         # Sanitize strings by removing "." and "-"
         values = [value.replace(u".", u"").replace(u"-", u"")
                   for value in values]
-
-        # Resolve foreign keys to reading group foreign keys
-        # (character IDs)
-        d = {}  # kunyomi fk to reading group fk mapping
-
-        # Get all reading group IDs and their foreign keys (character IDs)
-        # (reading group ID is a reading FK (which we have),
-        #  and reading group FK is the character ID (which we want).)
-        self.cursor.execute("SELECT id, fk FROM rmgroup")
-        for _id, fk in self.cursor.fetchall():
-            d[_id] = fk
-
-        # Convert reading group foreign keys from the readings into
-        # character IDs.
-        entry_ids = [d[reading_fk] for reading_fk in reading_fks]
 
         # Create new table
         tbl_name = "kunyomi_lookup"
@@ -381,7 +371,7 @@ class Database(object):
         tbl.create()
 
         # Store all sanitized strings and their keys in the table
-        rows = zip(values, entry_ids)
+        rows = zip(values, ids)
         tbl.insertmany(rows)
 
 

@@ -70,19 +70,41 @@ class Database(object):
 
         entries_by_keb = self._search_keb(unicode_query)
         entries_by_reb = self._search_reb(unicode_query)
-        entries_by_indices = self._search_indices_from_ja(unicode_query)
+        #entries_by_indices = self._search_indices_from_ja(unicode_query)
+
+        # Merge results into one list and return.
+        results = []
+        for lst in (entries_by_keb, entries_by_reb):
+            for o in lst:
+                if o not in results:
+                    results.append(o)
+        return results
 
     def _search_keb(unicode_query):
-        #self.cursor.execute(
-        #    "SELECT id, literal FROM character WHERE id IN "
-        #    "(SELECT fk FROM rmgroup WHERE id IN "
-        #    "(SELECT fk FROM reading WHERE value LIKE ?))", (query,))
-        #rows = self.cursor.fetchall()
-        #return rows
-        raise NotImplementedError
+        """Searches kanji elements (Japanese readings with kanji).
+
+        Returns a list of entry IDs.
+
+        """
+        # keb: entry.id -> k_ele.fk, k_ele.value
+        query = "SELECT fk FROM k_ele WHERE value LIKE ?"
+        args = (unicode_query,)
+        self.cursor.execute(query, args)
+        rows = self.cursor.fetchall()
+        return [row[0] for row in rows]
 
     def _search_reb(unicode_query):
-        raise NotImplementedError
+        """Searches reading elements (Japanese readings without kanji).
+
+        Returns a list of entry IDs.
+
+        """
+        # reb: entry.id -> r_ele.fk, r_ele.value
+        query = "SELECT fk FROM r_ele WHERE value LIKE ?"
+        args = (unicode_query,)
+        self.cursor.execute(query, args)
+        rows = self.cursor.fetchall()
+        return [row[0] for row in rows]
 
     def _search_indices_from_ja(unicode_query):
         raise NotImplementedError
@@ -98,10 +120,44 @@ class Database(object):
         unicode_query = wrapped_query.decode(encoding)
 
         entries_by_glosses = self._search_glosses(unicode_query, lang)
-        entries_by_indices = self._search_indices_to_ja(unicode_query, lang)
+        #entries_by_indices = self._search_indices_to_ja(unicode_query, lang)
+
+        # Merge results into one list and return.
+        results = []
+        for lst in (entries_by_glosses,):
+            for o in lst:
+                if o not in results:
+                    results.append(o)
+        return results
+
 
     def _search_glosses(unicode_query, lang):
-        raise NotImplementedError
+        """Searches foreign language glosses.
+
+        If lang is not None, only entries which match the lang
+        parameter are returned.
+
+        Returns a list of entry IDs.
+
+        """
+        # entry.id -> sense.fk, sense.id -> gloss.fk
+        if lang is not None:
+            query = (
+                "SELECT e.id FROM gloss g, sense s, entry e "
+                "WHERE g.lang = ? AND g.value LIKE ? "
+                "AND g.fk = s.id AND s.fk = e.id"
+            )
+            args = (lang, unicode_query)
+        else:
+            query = (
+                "SELECT e.id FROM gloss g, sense s, entry e "
+                "WHERE g.value LIKE ?"
+            )
+            args = (unicode_query,)
+
+        self.cursor.execute(query, args)
+        rows = self.cursor.fetchall()
+        return [row[0] for row in rows]
 
     def _search_indices_to_ja(unicode_query, lang):
         raise NotImplementedError
