@@ -25,6 +25,49 @@ gettext.install("jblite")
 get_encoding = sys.getfilesystemencoding
 
 
+class Entry(object):
+
+    def __init__(self, data_d):
+        self._d = data_d
+
+    def __str__(self):
+        """Basic string representation of the entry."""
+        d = self._d
+        lines = []
+
+        k_eles = d.get("k_ele", [])
+        if len(k_eles) > 0:
+            lines.append(_(u"Kanji readings:"))
+        for k_ele_index, k_ele in enumerate(k_eles):
+            lines.append(_(u"  Reading %d:") % k_ele_index)
+
+        r_eles = d.get("r_ele", [])
+        if len(r_eles) > 0:
+            lines.append(_(u"Kana readings:"))
+        for r_ele_index, r_ele in enumerate(r_eles):
+            lines.append(_(u"  Reading %d:") % r_ele_index)
+
+        senses = d.get("sense", [])
+        if len(senses) > 0:
+            lines.append(_(u"Glosses:"))
+        for sense_index, sense in enumerate(senses):
+            sense_index += 1
+            lines.append(_(u"  Sense %d:") % sense_index)
+            glosses = sense.get("gloss", [])
+            # Output glosses by language
+            for lang in sorted(glosses.keys()):
+                values = glosses[lang]
+                lines.append(_(u"    Lang: %s") % lang)
+                for val_index, val_d in enumerate(values):
+                    val_index += 1
+                    val = val_d['value']
+                    lines.append(_(u"      Gloss %d: %s") % (val_index, val))
+        return u"\n".join(lines)
+
+    def __repr__(self):
+        return repr(self._d)
+
+
 class Database(object):
 
     """Top level object for SQLite 3-based JMdict database."""
@@ -196,7 +239,8 @@ class Database(object):
     def lookup(self, entry_id):
         """Creates an entry object.
 
-        Returns a dictionary containing all data for the entry.
+        Returns an Entry object (a thin layer around a data
+        dictionary).
 
         """
         # Basically, this is the reverse of _populate_database for a
@@ -290,23 +334,19 @@ class Database(object):
         sense = []
         for sense_id in sense_ids:
             # gloss
-            query = "SELECT value, lang, g_gend, pri FROM gloss WHERE fk = ?"
+            query = "SELECT lang, value, g_gend, pri FROM gloss WHERE fk = ?"
             args = (sense_id,)
             rows = self.query_db(query, args)
-            gloss = [{"value": value,
-                      "lang": lang,
-                      "g_gend": g_gend,
-                      "pri": pri}
-                     for value, lang, g_gend, pri in rows]
-            d = {}
+            gloss = {}
+            for lang, value, g_gend, pri in rows:
+                lst = gloss.setdefault(lang, [])
+                lst.append(
+                    {"value": value, "g_gend": g_gend, "pri": pri})
             d['gloss'] = gloss
             sense.append(d)
         result['sense'] = sense
 
-
-
-        
-        return result
+        return Entry(result)
 
     def _create_table_objects(self):
         """Creates table objects.
@@ -650,7 +690,7 @@ def parse_args():
     return (options, args)
 
 def main():
-    # Copied verbatim from kd2.py.
+    # Copied *almost* verbatim from kd2.py.
     options, args = parse_args()
     db_fname = args[0]
 
@@ -673,7 +713,7 @@ def main():
         from pprint import pprint
         for result in results:
             entry = db.lookup(result)
-            pprint(entry)
+            print(str(entry))
             print()
     else:
         print(_("No results found."))
