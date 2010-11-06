@@ -518,7 +518,11 @@ def main():
         db = Database(db_fname)
 
     results = []
-    if options.search and len(args) > 1:
+    if len(args) <= 1:
+        # No search was requested; we can exit here.
+        return
+
+    if options.search == True:
         # Do search
         # To be nice, we'll join all remaining args with spaces.
         search_query = " ".join(args[1:])
@@ -527,7 +531,7 @@ def main():
             results = db.search(search_query, lang=options.lang)
         else:
             results = db.search(search_query)
-    elif options.lookup and len(args) > 1:
+    elif options.lookup == True:
         # Do lookup
         encoding = get_encoding()
         lookup_query = args[1].decode(encoding)
@@ -536,15 +540,22 @@ def main():
             result = db.lookup_by_literal(character)
             if result is not None:
                 results.append(result)
+    else:
+        # No lookup
+        print(_("For searches or lookups, the --search or --lookup flag is "
+                "required."))
+        return
 
     # To do: visualize results
     # Not as important; now we know we can at least do our needed
     # lookups...
     if len(results) > 0:
         from pprint import pprint
+        # DEBUG: until lookup_by_id is implemented, this will work.
+        pprint(results)
         for result in results:
-            entry = db.lookup_by_id(result)
-            pprint(entry)
+            #entry = db.lookup_by_id(result)
+            #pprint(entry)
             print()
     else:
         print(_("No results found."))
