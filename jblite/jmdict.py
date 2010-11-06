@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """JMdict support."""
 
 # This could be a bit cleaner if I used something like SQLalchemy
