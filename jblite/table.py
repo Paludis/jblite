@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 class Table(object):
 
     """Base class for tables.
@@ -15,7 +18,7 @@ class Table(object):
     index_queries are a little more complicated.  They should be
     specified like so:
 
-      CREATE INDEX %s_XXX ON %s (YYY)"
+      CREATE INDEX %s_XXX ON %s (YYY)
 
     where %s is a placeholder for the table name (note that it's used
     twice), and XXX/YYY are replaced as desired.

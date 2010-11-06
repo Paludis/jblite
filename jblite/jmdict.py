@@ -28,6 +28,79 @@ XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 # Copied from kd2.py...
 get_encoding = sys.getfilesystemencoding
 
+# FORMAT OF TABLE MAP:
+# dictionary entry: table: (children | None)
+# table: table_name | (table_name, table_type, *args, **kwargs)
+#
+# Ideas:
+# Value = dict: take keys as child tables, lookup all rows, and take values as grandchildren.
+# Value = list: take items as child tables, lookup all rows, assume no children.
+# 
+#
+# entry:
+# data = tables["entry"].lookup()
+# children_map = TABLE_MAP["entry"]
+# children = get_data(children_map["k_ele"])
+# result = TableData(data, children)
+#
+#
+# {"k_ele": {"data": [...],
+#            "children": {...}}}
+
+# Table data object:
+#   obj.data: {},  # single db row
+#   obj.children: {"key": table_object}
+
+
+# breadth first creation?  depth?
+
+class Record(object):
+
+    """Represents a row in a table, plus all data it is a 'parent' of.
+
+    Each Record may be linked to multiple Records in child tables.
+
+    """
+
+    def __init__(self, data=None, children=None):
+        self.data = data if data is not None else {}
+        self.children = children if children is not None else {}
+
+# Map of tables to their children maps.  Empty {} means no children.
+TABLE_MAP = {
+    "entry": {
+        "k_ele": {
+            "ke_inf": {},
+            "ke_pri": {},
+            },
+        "r_ele": {
+            "re_restr": {},
+            "re_inf": {},
+            "re_pri": {},
+            },
+        "links": {},
+        "bibl": {},
+        "etym": {},
+        "audit": {},
+        "sense": {
+            "pos": {},
+            "field": {},
+            "misc": {},
+            "dial": {},
+            "stagk": {},
+            "stagr": {},
+            "xref": {},
+            "ant": {},
+            "s_inf": {},
+            "example": {},
+            "lsource": {},
+            "gloss": {
+                "pri": {},
+                }
+            }
+        }
+    }
+
 
 class Entry(object):
 
@@ -82,6 +155,7 @@ class Database(object):
 
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
+        self.conn.row_factory = sqlite3.Row  # keyword accessors for rows
         self.cursor = self.conn.cursor()
         self.tables = self._create_table_objects()
         if init_from_file is not None:
@@ -244,40 +318,55 @@ class Database(object):
         result = [d[entity] for entity in entities]
         return result
 
+    # lookup entry by id
+    # lookup all other data by fk
+
     def lookup(self, entry_id):
         """Creates an entry object.
 
-        Returns an Entry object (a thin layer around a data
-        dictionary).
+        Returns a Record instance from the entry table, with all data
+        linked as children to this record.
 
         """
-        # Basically, this is the reverse of _populate_database for a
-        # single entry.
-        #
-        # Structure
-        # =========
-        #
-        # entry -> k_ele -> ke_inf
-        #                -> ke_pri
-        #       -> r_ele -> re_restr
-        #                -> re_inf
-        #                -> re_pri
-        #       -> links
-        #       -> bibl
-        #       -> etym
-        #       -> audit
-        #       -> sense -> (pos, field, misc, dial, stagk, stagr,
-        #                    xref, ant, s_inf, example, lsource)
-        #                -> gloss -> pri
+        # Lookup data in entry table.
+        rows = self.tables['entry'].lookup_by_id(entry_id)
+        data = rows[0]  # only 1 row
+        # Lookup child data using the entry_id as a foreign key.
+        children = self._lookup_children(TABLE_MAP['entry'], data['id'])
+        record = Record(data, children)
+        return record
 
-        result = {}
+    def _lookup_children(self, children_map, fk):
+        children = {}
+        for child_table in children_map:
+            grandchild_map = children_map[child_table]
+            children[child_table] = self._lookup_by_fk(
+                child_table, children_map[child_table], fk)
+        return children
 
+    def _lookup_by_fk(self, table_name, children_map, fk):
+        """Looks up data from a table and related 'child' tables.
+
+        table_name: name of the table to query.
+        children_map: a dictionary of child table mappings, or None if
+            no children are present.
+        fk: foreign key used in table query.
+
+        """
+        rows = self.tables[table_name].lookup_by_fk(fk)
+        results = []
+        for row in rows:
+            children = self._lookup_children(children_map, row['id'])
+            record = Record(row, children)
+            results.append(record)
+        return results
+
+    def _old_lookup(self):
         # AT LEAST (for now...):
         # 1. readings
         # 1.1. k_ele
-        query = "SELECT id, value FROM k_ele WHERE fk = ?"
-        args = (entry_id,)
-        rows = self.query_db(query, args)
+        rows = self.query_db("SELECT id, value FROM k_ele WHERE fk = ?",
+                             (entry_id,))
         k_ele = []
         for k_ele_id, keb in rows:
             # ke_inf
@@ -326,7 +415,7 @@ class Database(object):
             # merge results
             r_ele_d = {}
             r_ele_d['reb'] = reb
-            r_ele_d['nokanji'] = True if nokanji == 1 else False
+            r_ele_d['nokanji'] = nokanji
             r_ele_d['re_restr'] = re_restr
             r_ele_d['re_pri'] = re_pri
             r_ele_d['re_inf'] = re_inf
