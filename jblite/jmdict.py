@@ -14,7 +14,7 @@ import os, sys, re, sqlite3
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 from helpers import gzread
-from table import Table, KeyValueTable
+from table import Table, ChildTable, KeyValueTable, Record
 
 import gettext
 #t = gettext.translation("jblite")
@@ -54,48 +54,36 @@ get_encoding = sys.getfilesystemencoding
 
 # breadth first creation?  depth?
 
-class Record(object):
-
-    """Represents a row in a table, plus all data it is a 'parent' of.
-
-    Each Record may be linked to multiple Records in child tables.
-
-    """
-
-    def __init__(self, data=None, children=None):
-        self.data = data if data is not None else {}
-        self.children = children if children is not None else {}
-
 # Map of tables to their children maps.  Empty {} means no children.
 TABLE_MAP = {
-    "entry": {
-        "k_ele": {
-            "ke_inf": {},
-            "ke_pri": {},
+    u"entry": {
+        u"k_ele": {
+            u"ke_inf": {},
+            u"ke_pri": {},
             },
-        "r_ele": {
-            "re_restr": {},
-            "re_inf": {},
-            "re_pri": {},
+        u"r_ele": {
+            u"re_restr": {},
+            u"re_inf": {},
+            u"re_pri": {},
             },
-        "links": {},
-        "bibl": {},
-        "etym": {},
-        "audit": {},
-        "sense": {
-            "pos": {},
-            "field": {},
-            "misc": {},
-            "dial": {},
-            "stagk": {},
-            "stagr": {},
-            "xref": {},
-            "ant": {},
-            "s_inf": {},
-            "example": {},
-            "lsource": {},
-            "gloss": {
-                "pri": {},
+        u"links": {},
+        u"bibl": {},
+        u"etym": {},
+        u"audit": {},
+        u"sense": {
+            u"pos": {},
+            u"field": {},
+            u"misc": {},
+            u"dial": {},
+            u"stagk": {},
+            u"stagr": {},
+            u"xref": {},
+            u"ant": {},
+            u"s_inf": {},
+            u"example": {},
+            u"lsource": {},
+            u"gloss": {
+                u"pri": {},
                 }
             }
         }
@@ -104,49 +92,53 @@ TABLE_MAP = {
 
 class Entry(object):
 
-    def __init__(self, data_d):
-        self._d = data_d
+    def __init__(self, record):
+        self._record = record
 
     def __unicode__(self):
         """Basic string representation of the entry."""
-        d = self._d
+        rec = self._record
         lines = []
 
-        k_eles = d.get("k_ele", [])
+        k_eles = rec.find_children("k_ele")
         if len(k_eles) > 0:
             lines.append(_(u"Kanji readings:"))
         for k_ele_index, k_ele in enumerate(k_eles):
             k_ele_index += 1
             lines.append(_(u"  Reading %d:") % k_ele_index)
-            lines.append(_(u"    Blob: %s") % k_ele['keb'])
+            lines.append(_(u"    Blob: %s") % k_ele.data['value'])
 
-        r_eles = d.get("r_ele", [])
+        r_eles = rec.find_children("r_ele")
         if len(r_eles) > 0:
             lines.append(_(u"Kana readings:"))
         for r_ele_index, r_ele in enumerate(r_eles):
             r_ele_index += 1
             lines.append(_(u"  Reading %d:") % r_ele_index)
-            lines.append(_(u"    Blob: %s") % r_ele['reb'])
+            lines.append(_(u"    Blob: %s") % r_ele.data['value'])
 
-        senses = d.get("sense", [])
+        senses = rec.find_children("sense")
         if len(senses) > 0:
             lines.append(_(u"Glosses:"))
         for sense_index, sense in enumerate(senses):
             sense_index += 1
             lines.append(_(u"  Sense %d:") % sense_index)
-            glosses = sense.get("gloss", {})
+            glosses = sense.find_children("gloss")
+
+            gloss_d = {}
+            for gloss in glosses:
+                gloss_d.setdefault(gloss.data["lang"], []).append(gloss)
             # Output glosses by language
-            for lang in sorted(glosses.keys()):
-                values = glosses[lang]
+            for lang in sorted(gloss_d.keys()):
+                gloss_recs = gloss_d[lang]
                 lines.append(_(u"    Lang: %s") % lang)
-                for val_index, val_d in enumerate(values):
-                    val_index += 1
-                    val = val_d['value']
-                    lines.append(_(u"      Gloss %d: %s") % (val_index, val))
+                for gloss_index, gloss in enumerate(gloss_recs):
+                    gloss_index += 1
+                    val = gloss.data['value']
+                    lines.append(_(u"      Gloss %d: %s") % (gloss_index, val))
         return u"\n".join(lines)
 
     def __repr__(self):
-        return repr(self._d)
+        return repr(self._record)
 
 
 class Database(object):
@@ -321,27 +313,36 @@ class Database(object):
     # lookup entry by id
     # lookup all other data by fk
 
+    # ... it seems like maybe this could be done with more explicit
+    # relationships between the table objects, rather than linking
+    # them all together here...  However, this code already nearly
+    # works as it is - maybe redoing things like that is too much into
+    # the realm of axe sharpening.
+
     def lookup(self, entry_id):
         """Creates an entry object.
 
-        Returns a Record instance from the entry table, with all data
-        linked as children to this record.
+        Finds a record table based upon the entry table.  (This
+        contains all data for an entry.)  This is then wrapped in an
+        Entry object which provides logic for displaying or otherwise
+        using the data.
 
         """
         # Lookup data in entry table.
-        rows = self.tables['entry'].lookup_by_id(entry_id)
-        data = rows[0]  # only 1 row
+        data = self.tables['entry'].lookup_by_id(entry_id)  # 1 row only
         # Lookup child data using the entry_id as a foreign key.
         children = self._lookup_children(TABLE_MAP['entry'], data['id'])
         record = Record(data, children)
-        return record
+        return Entry(record)
 
     def _lookup_children(self, children_map, fk):
         children = {}
         for child_table in children_map:
             grandchild_map = children_map[child_table]
-            children[child_table] = self._lookup_by_fk(
-                child_table, children_map[child_table], fk)
+            rows = self._lookup_by_fk(child_table,
+                                      children_map[child_table], fk)
+            if len(rows) > 0:
+                children[child_table] = rows
         return children
 
     def _lookup_by_fk(self, table_name, children_map, fk):
@@ -687,7 +688,7 @@ class KeyEntityTable(KeyValueTable):
                     "(id INTEGER PRIMARY KEY, fk INTEGER, entity INTEGER)")
 
 
-class REleTable(Table):
+class REleTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER,"
                     " value TEXT, nokanji INTEGER)")
@@ -697,7 +698,7 @@ class REleTable(Table):
         ]
 
 
-class SenseTable(Table):
+class SenseTable(ChildTable):
     """Corresponds to <sense> tag.  Functions as group for glosses, etc."""
     create_query = ("CREATE TABLE %s (id INTEGER PRIMARY KEY, fk INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?)"
@@ -706,7 +707,7 @@ class SenseTable(Table):
         ]
 
 
-class AuditTable(Table):
+class AuditTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER,"
                     " update_date TEXT, update_details TEXT)")
@@ -716,7 +717,7 @@ class AuditTable(Table):
         ]
 
 
-class LSourceTable(Table):
+class LSourceTable(ChildTable):
     """Represents the <lsource> element from JMdict.
 
     Important changes:
@@ -733,7 +734,7 @@ class LSourceTable(Table):
         ]
 
 
-class GlossTable(Table):
+class GlossTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER,"
                     " lang TEXT, g_gend TEXT, value TEXT, pri INTEGER)")
@@ -745,7 +746,7 @@ class GlossTable(Table):
         ]
 
 
-class LinksTable(Table):
+class LinksTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER,"
                     " tag TEXT, desc TEXT, uri TEXT)")
@@ -755,7 +756,7 @@ class LinksTable(Table):
         ]
 
 
-class BiblTable(Table):
+class BiblTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER,"
                     " tag TEXT, txt TEXT)")
@@ -814,10 +815,8 @@ def main():
             index += 1
             print(_("[Entry %d]") % index)
             entry = db.lookup(result)
-            try:
-                print(unicode(entry).encode(encoding))
-            except:
-                print(repr(entry))
+
+            print(unicode(entry).encode(encoding))
             print()
     else:
         print(_("No results found."))
