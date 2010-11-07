@@ -313,15 +313,6 @@ class Database(BaseDatabase):
         result = [d[entity] for entity in entities]
         return result
 
-    # lookup entry by id
-    # lookup all other data by fk
-
-    # ... it seems like maybe this could be done with more explicit
-    # relationships between the table objects, rather than linking
-    # them all together here...  However, this code already nearly
-    # works as it is - maybe redoing things like that is too much into
-    # the realm of axe sharpening.
-
     def _create_table_objects(self):
         """Creates table objects.
 
