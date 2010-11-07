@@ -14,6 +14,7 @@ import os, sys, re, sqlite3
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 from helpers import gzread
+from db import Database as BaseDatabase
 from table import Table, ChildTable, KeyValueTable, Record
 
 import gettext
@@ -55,39 +56,6 @@ get_encoding = sys.getfilesystemencoding
 # breadth first creation?  depth?
 
 # Map of tables to their children maps.  Empty {} means no children.
-TABLE_MAP = {
-    u"entry": {
-        u"k_ele": {
-            u"ke_inf": {},
-            u"ke_pri": {},
-            },
-        u"r_ele": {
-            u"re_restr": {},
-            u"re_inf": {},
-            u"re_pri": {},
-            },
-        u"links": {},
-        u"bibl": {},
-        u"etym": {},
-        u"audit": {},
-        u"sense": {
-            u"pos": {},
-            u"field": {},
-            u"misc": {},
-            u"dial": {},
-            u"stagk": {},
-            u"stagr": {},
-            u"xref": {},
-            u"ant": {},
-            u"s_inf": {},
-            u"example": {},
-            u"lsource": {},
-            u"gloss": {
-                u"pri": {},
-                }
-            }
-        }
-    }
 
 
 class Entry(object):
@@ -141,9 +109,44 @@ class Entry(object):
         return repr(self._record)
 
 
-class Database(object):
+class Database(BaseDatabase):
 
     """Top level object for SQLite 3-based JMdict database."""
+
+    entry_class = Entry
+    table_map = {
+        u"entry": {
+            u"k_ele": {
+                u"ke_inf": {},
+                u"ke_pri": {},
+                },
+            u"r_ele": {
+                u"re_restr": {},
+                u"re_inf": {},
+                u"re_pri": {},
+                },
+            u"links": {},
+            u"bibl": {},
+            u"etym": {},
+            u"audit": {},
+            u"sense": {
+                u"pos": {},
+                u"field": {},
+                u"misc": {},
+                u"dial": {},
+                u"stagk": {},
+                u"stagr": {},
+                u"xref": {},
+                u"ant": {},
+                u"s_inf": {},
+                u"example": {},
+                u"lsource": {},
+                u"gloss": {
+                    u"pri": {},
+                    }
+                }
+            }
+        }
 
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
@@ -318,134 +321,6 @@ class Database(object):
     # them all together here...  However, this code already nearly
     # works as it is - maybe redoing things like that is too much into
     # the realm of axe sharpening.
-
-    def lookup(self, entry_id):
-        """Creates an entry object.
-
-        Finds a record table based upon the entry table.  (This
-        contains all data for an entry.)  This is then wrapped in an
-        Entry object which provides logic for displaying or otherwise
-        using the data.
-
-        """
-        # Lookup data in entry table.
-        data = self.tables['entry'].lookup_by_id(entry_id)  # 1 row only
-        # Lookup child data using the entry_id as a foreign key.
-        children = self._lookup_children(TABLE_MAP['entry'], data['id'])
-        record = Record(data, children)
-        return Entry(record)
-
-    def _lookup_children(self, children_map, fk):
-        children = {}
-        for child_table in children_map:
-            grandchild_map = children_map[child_table]
-            rows = self._lookup_by_fk(child_table,
-                                      children_map[child_table], fk)
-            if len(rows) > 0:
-                children[child_table] = rows
-        return children
-
-    def _lookup_by_fk(self, table_name, children_map, fk):
-        """Looks up data from a table and related 'child' tables.
-
-        table_name: name of the table to query.
-        children_map: a dictionary of child table mappings, or None if
-            no children are present.
-        fk: foreign key used in table query.
-
-        """
-        rows = self.tables[table_name].lookup_by_fk(fk)
-        results = []
-        for row in rows:
-            children = self._lookup_children(children_map, row['id'])
-            record = Record(row, children)
-            results.append(record)
-        return results
-
-    def _old_lookup(self):
-        # AT LEAST (for now...):
-        # 1. readings
-        # 1.1. k_ele
-        rows = self.query_db("SELECT id, value FROM k_ele WHERE fk = ?",
-                             (entry_id,))
-        k_ele = []
-        for k_ele_id, keb in rows:
-            # ke_inf
-            query = "SELECT entity FROM ke_inf WHERE fk = ?"
-            args = (k_ele_id,)
-            rows = self.query_db(query, args)
-            ke_inf = self._convert_entities([row[0] for row in rows])
-
-            # ke_pri
-            query = "SELECT value FROM ke_pri WHERE fk = ?"
-            args = (k_ele_id,)
-            rows = self.query_db(query, args)
-            ke_pri = [row[0] for row in rows]
-
-            # merge results
-            k_ele_d = {}
-            k_ele_d['keb'] = keb
-            k_ele_d['ke_pri'] = ke_pri
-            k_ele_d['ke_inf'] = ke_inf
-            k_ele.append(k_ele_d)
-        result['k_ele'] = k_ele
-        # 1.2. r_ele
-        query = "SELECT id, value, nokanji FROM r_ele WHERE fk = ?"
-        args = (entry_id,)
-        rows = self.query_db(query, args)
-        r_ele = []
-        for r_ele_id, reb, nokanji in rows:
-            # re_restr
-            query = "SELECT value FROM re_restr WHERE fk = ?"
-            args = (r_ele_id,)
-            rows = self.query_db(query, args)
-            re_restr = [row[0] for row in rows]
-
-            # re_inf
-            query = "SELECT entity FROM re_inf WHERE fk = ?"
-            args = (r_ele_id,)
-            rows = self.query_db(query, args)
-            re_inf = self._convert_entities([row[0] for row in rows])
-
-            # re_pri
-            query = "SELECT value FROM re_pri WHERE fk = ?"
-            args = (r_ele_id,)
-            rows = self.query_db(query, args)
-            re_pri = [row[0] for row in rows]
-
-            # merge results
-            r_ele_d = {}
-            r_ele_d['reb'] = reb
-            r_ele_d['nokanji'] = nokanji
-            r_ele_d['re_restr'] = re_restr
-            r_ele_d['re_pri'] = re_pri
-            r_ele_d['re_inf'] = re_inf
-            r_ele.append(r_ele_d)
-        result['r_ele'] = r_ele
-
-        # 2. glosses
-        query = "SELECT id FROM sense WHERE fk = ?"
-        args = (entry_id,)
-        rows = self.query_db(query, args)
-        sense_ids = [row[0] for row in rows]
-
-        sense = []
-        for sense_id in sense_ids:
-            # gloss
-            query = "SELECT lang, value, g_gend, pri FROM gloss WHERE fk = ?"
-            args = (sense_id,)
-            rows = self.query_db(query, args)
-            gloss = {}
-            for lang, value, g_gend, pri in rows:
-                lst = gloss.setdefault(lang, [])
-                lst.append(
-                    {"value": value, "g_gend": g_gend, "pri": pri})
-            sense_d = {}
-            sense_d['gloss'] = gloss
-            sense.append(sense_d)
-        result['sense'] = sense
-
-        return Entry(result)
 
     def _create_table_objects(self):
         """Creates table objects.
