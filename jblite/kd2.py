@@ -6,7 +6,8 @@ import os, sys, re, sqlite3, time
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 from helpers import gzread
-from table import Table, KeyValueTable
+from db import Database as BaseDatabase
+from table import Table, ChildTable, KeyValueTable
 
 import gettext
 #t = gettext.translation("jblite")
@@ -20,9 +21,41 @@ gettext.install("jblite")
 get_encoding = sys.getfilesystemencoding
 
 
-class Database(object):
+class Entry(object):
+
+    def __init__(self, record):
+        self._record = record
+
+    def __unicode__(self):
+        """Basic string representation of the entry."""
+        # *** TO DO ***
+        return unicode(self._record)
+
+    def __repr__(self):
+        return repr(self._record)
+
+
+class Database(BaseDatabase):
 
     """Top level object for SQLite 3-based KANJIDIC2 database."""
+
+    entry_class = Entry
+    table_map = {
+        u"character": {
+            u"codepoint": {},
+            u"radical": {},
+            u"stroke_count": {},
+            u"variant": {},
+            u"rad_name": {},
+            u"dic_number": {},
+            u"query_code": {},
+            u"rmgroup": {
+                u"reading": {},
+                u"meaning": {},
+                },
+            u"nanori": {},
+            }
+        }
 
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
@@ -130,62 +163,8 @@ class Database(object):
         rows = self.cursor.fetchall()
         return rows
 
-    def lookup_by_id(self, character_id):
-
-        def get_single_col(rows):
-            return [row[0] for row in rows]
-
-        def skip_id(rows):
-            return [row[1:] for row in rows]
-
-        result = {}
-
-        # lookup returns a list of rows, but there'll only be one here...
-        literal, grade, freq, jlpt = \
-            self.tables['character'].lookup(id=character_id)[0]
-        result['literal'] = literal
-        result['grade'] = grade
-        result['freq'] = freq
-        result['jlpt'] = jlpt
-
-        result['codepoints'] = \
-            skip_id(self.tables['codepoint'].lookup(fk=character_id))
-        result['radicals'] = \
-            skip_id(self.tables['radical'].lookup(fk=character_id))
-
-        # Strokes: ignore ID column, take only stroke count.
-        result['strokes'] = \
-            get_single_col(skip_id(
-                self.tables['stroke_count'].lookup(fk=character_id)))
-
-        result['variants'] = \
-            skip_id(self.tables['variant'].lookup(fk=character_id))
-        result['rad_names'] = \
-            skip_id(self.tables['rad_name'].lookup(fk=character_id))
-        result['dic_numbers'] = \
-            skip_id(self.table['dic_number'].lookup(fk=character_id))
-        result['query_codes'] = \
-            skip_id(self.table['query_code'].lookup(fk=character_id))
-
-        # Readings/meanings
-        rmgroup_ids = get_single_col(
-            self.tables['rmgroup'].lookup(fk=character_id))
-        rmgroups = []
-        for rmgroup_id in rmgroup_ids:
-            rmgroup = {}
-            rmgroup['readings'] = \
-                skip_id(self.tables['reading'].lookup(fk=rmgroup_id))
-            rmgroup['meanings'] = \
-                skip_id(self.tables['meaning'].lookup(fk=rmgroup_id))
-            rmgroups.append(rmgroup)
-        result['rmgroups'] = rmgroups
-
-        result['nanori'] = \
-            skip_id(self.tables['nanori'].lookup(fk=character_id))
-
-        return result
-
-    def lookup_by_literal(self, literal):
+    def search_by_literal(self, literal):
+        # Not much of a "search", but avoids overlap with BaseDictionary.lookup.
         self.cursor.execute("SELECT id FROM character WHERE literal = ?",
                             (literal,))
         rows = self.cursor.fetchall()
@@ -193,6 +172,9 @@ class Database(object):
             return None
         else:
             return rows[0][0]
+
+    def lookup(self, id):
+        return BaseDatabase.lookup(self, "character", id)
 
     def _create_table_objects(self):
         """Creates table objects.
@@ -399,7 +381,7 @@ class CharacterTable(Table):
         ]
 
 
-class TypeValueTable(Table):
+class TypeValueTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, value TEXT)")
@@ -409,7 +391,7 @@ class TypeValueTable(Table):
         ]
 
 
-class StrokeCountTable(Table):
+class StrokeCountTable(ChildTable):
     create_query = ("CREATE TABLE %s (id INTEGER PRIMARY KEY, "
                     "fk INTEGER, count INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?, ?)"
@@ -418,7 +400,7 @@ class StrokeCountTable(Table):
         ]
 
 
-class DicNumberTable(Table):
+class DicNumberTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, m_vol TEXT, m_page TEXT, value TEXT)")
@@ -428,7 +410,7 @@ class DicNumberTable(Table):
         ]
 
 
-class QueryCodeTable(Table):
+class QueryCodeTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, skip_misclass TEXT, value TEXT)")
@@ -438,14 +420,14 @@ class QueryCodeTable(Table):
         ]
 
 
-class RMGroupTable(Table):
+class RMGroupTable(ChildTable):
     create_query = ("CREATE TABLE %s (id INTEGER PRIMARY KEY, fk INTEGER)")
     insert_query = "INSERT INTO %s VALUES (NULL, ?)"
     index_queries = [
         "CREATE INDEX %s_fk ON %s (fk)",
         ]
 
-class ReadingTable(Table):
+class ReadingTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "type TEXT, on_type TEXT, r_status TEXT, value TEXT)")
@@ -456,7 +438,7 @@ class ReadingTable(Table):
         ]
 
 
-class MeaningTable(Table):
+class MeaningTable(ChildTable):
     create_query = ("CREATE TABLE %s "
                     "(id INTEGER PRIMARY KEY, fk INTEGER, "
                     "lang TEXT, value TEXT)")
@@ -538,7 +520,7 @@ def main():
         lookup_query = args[1].decode(encoding)
         results = []
         for character in lookup_query:
-            result = db.lookup_by_literal(character)
+            result = db.search_by_literal(character)
             if result is not None:
                 results.append(result)
     else:
@@ -555,8 +537,8 @@ def main():
         # DEBUG: until lookup_by_id is implemented, this will work.
         pprint(results)
         for result in results:
-            #entry = db.lookup_by_id(result)
-            #pprint(entry)
+            entry = db.lookup(result)
+            pprint(entry)
             print()
     else:
         print(_("No results found."))

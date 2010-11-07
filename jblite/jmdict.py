@@ -15,7 +15,7 @@ from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
 from helpers import gzread
 from db import Database as BaseDatabase
-from table import Table, ChildTable, KeyValueTable, Record
+from table import Table, ChildTable, KeyValueTable
 
 import gettext
 #t = gettext.translation("jblite")
@@ -289,6 +289,9 @@ class Database(BaseDatabase):
 
     def _search_indices_to_ja(self, unicode_query, lang):
         raise NotImplementedError
+
+    def lookup(self, id):
+        return BaseDatabase.lookup(self, "entry", id)
 
     def query_db(self, *args, **kwargs):
         """Helper.  Wraps the execute/fetchall idiom on the DB cursor."""

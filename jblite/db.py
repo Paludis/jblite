@@ -11,7 +11,7 @@ class Database(object):
     def __init__(self):
         self.tables = {}
 
-    def lookup(self, entry_id):
+    def lookup(self, key, entry_id):
         """Creates an entry object.
 
         Finds a record table based upon the entry table.  (This
@@ -21,9 +21,9 @@ class Database(object):
 
         """
         # Lookup data in entry table.
-        data = self.tables['entry'].lookup_by_id(entry_id)  # 1 row only
+        data = self.tables[key].lookup_by_id(entry_id)  # 1 row only
         # Lookup child data using the entry_id as a foreign key.
-        children = self._lookup_children(self.table_map['entry'], data['id'])
+        children = self._lookup_children(self.table_map[key], data['id'])
         record = Record(data, children)
         return self.entry_class(record)
 
