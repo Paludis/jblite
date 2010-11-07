@@ -59,6 +59,7 @@ class Database(BaseDatabase):
 
     def __init__(self, filename, init_from_file=None):
         self.conn = sqlite3.connect(filename)
+        self.conn.row_factory = sqlite3.Row  # keyword accessors for rows
         self.cursor = self.conn.cursor()
         self.tables = self._create_table_objects()
         if init_from_file is not None:
