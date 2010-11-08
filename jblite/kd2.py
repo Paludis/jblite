@@ -96,6 +96,7 @@ class Database(BaseDatabase):
         entries_m = self.search_by_meaning(unicode_query,
                                            lang=lang)
         entries_n = self.search_by_nanori(unicode_query)
+        entries_i = self.search_by_indices(unicode_query, lang=lang)
 
         # DEBUG CODE
         print("READINGS:")
@@ -125,9 +126,16 @@ class Database(BaseDatabase):
             except UnicodeEncodeError:
                 print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
 
+        print("INDICES:")
+        if len(entries_i) == 0:
+            print("No indexed results found.")
+        for ent_id in entries_i:
+            print(u"ID: %d" % (ent_id,))
+
         # Results: character IDs
         results = list(sorted([row[0] for row in
-                               (entries_r + entries_m + entries_n)]))
+                               (entries_r + entries_m + entries_n)]
+                              + entries_i))
 
         return results
 
@@ -163,6 +171,15 @@ class Database(BaseDatabase):
                 (lang, query))
         rows = self.cursor.fetchall()
         return rows
+
+    def search_by_indices(self, query, lang=None):
+        # Get IDs from index table
+        # Note: lang is currently unused.
+        self.cursor.execute(
+            "SELECT character_id FROM kunyomi_lookup WHERE reading LIKE ?",
+            (query,))
+        rows = self.cursor.fetchall()
+        return [row[0] for row in rows]
 
     def search_by_literal(self, literal):
         # Not much of a "search", but avoids overlap with BaseDictionary.lookup.
