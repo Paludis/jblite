@@ -167,12 +167,14 @@ class Database(BaseDatabase):
             self._create_index_tables()
             self.conn.commit()
 
-    def search(self, query, lang=None):
+    def search(self, query, lang=None, options=None):
         encoding = get_encoding()
         wrapped_query = "%%%s%%" % query  # Wrap in wildcards
         unicode_query = wrapped_query.decode(encoding)
 
-        if os.name == "nt":
+        verbose = (options is not None) and (options.verbose == True)
+
+        if verbose and os.name == "nt":
             print(u"Searching for \"%s\", lang=%s..." %
                   (unicode_query, repr(lang)),
                   file=sys.stderr)
@@ -188,38 +190,39 @@ class Database(BaseDatabase):
         entries_i = self.search_by_indices(unicode_query, lang=lang)
 
         # DEBUG CODE
-        print("READINGS:")
-        if len(entries_r) == 0:
-            print("No 'reading' results found.")
-        for ent_id, literal in entries_r:
-            try:
-                print(u"ID: %d, literal: %s" % (ent_id, literal))
-            except UnicodeEncodeError:
-                print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
+        if verbose:
+            print("READINGS:")
+            if len(entries_r) == 0:
+                print("No 'reading' results found.")
+            for ent_id, literal in entries_r:
+                try:
+                    print(u"ID: %d, literal: %s" % (ent_id, literal))
+                except UnicodeEncodeError:
+                    print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
 
-        print("NANORI:")
-        if len(entries_n) == 0:
-            print("No 'nanori' results found.")
-        for ent_id, literal in entries_n:
-            try:
-                print(u"ID: %d, literal: %s" % (ent_id, literal))
-            except UnicodeEncodeError:
-                print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
+            print("NANORI:")
+            if len(entries_n) == 0:
+                print("No 'nanori' results found.")
+            for ent_id, literal in entries_n:
+                try:
+                    print(u"ID: %d, literal: %s" % (ent_id, literal))
+                except UnicodeEncodeError:
+                    print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
 
-        print("MEANINGS:")
-        if len(entries_m) == 0:
-            print("No 'meaning' results found.")
-        for ent_id, literal in entries_m:
-            try:
-                print(u"ID: %d, literal: %s" % (ent_id, literal))
-            except UnicodeEncodeError:
-                print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
+            print("MEANINGS:")
+            if len(entries_m) == 0:
+                print("No 'meaning' results found.")
+            for ent_id, literal in entries_m:
+                try:
+                    print(u"ID: %d, literal: %s" % (ent_id, literal))
+                except UnicodeEncodeError:
+                    print(u"ID: %d, literal (repr): %s" % (ent_id, repr(literal)))
 
-        print("INDICES:")
-        if len(entries_i) == 0:
-            print("No indexed results found.")
-        for ent_id in entries_i:
-            print(u"ID: %d" % (ent_id,))
+            print("INDICES:")
+            if len(entries_i) == 0:
+                print("No indexed results found.")
+            for ent_id in entries_i:
+                print(u"ID: %d" % (ent_id,))
 
         # Results: character IDs
         results = list(sorted([row[0] for row in
@@ -588,6 +591,8 @@ def parse_args():
                   help=_("Look up exact character"))
     op.add_option("-L", "--lang",
                   help=_("Specify preferred language for searching."))
+    op.add_option("-v", "--verbose", action="store_true",
+                  help=_("Verbose mode (print debug strings)"))
     options, args = op.parse_args()
     if len(args) < 1:
         op.print_help()
@@ -618,9 +623,10 @@ def main():
         search_query = " ".join(args[1:])
 
         if options.lang is not None:
-            results = db.search(search_query, lang=options.lang)
+            results = db.search(search_query,
+                                lang=options.lang, options=options)
         else:
-            results = db.search(search_query)
+            results = db.search(search_query, options=options)
     elif options.lookup == True:
         # Do lookup
         encoding = get_encoding()
