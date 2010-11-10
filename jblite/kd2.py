@@ -57,7 +57,8 @@ class Entry(object):
         char_rec = self._record
         lines = []
 
-        lines.append(_(u"Literal: %s") % char_rec.data["literal"])
+        literal = char_rec.data["literal"]
+        lines.append(_(u"Literal: %s (0x%X)") % (literal, ord(literal)))
 
         rmgroup_recs = char_rec.find_children("rmgroup")
         for i, rmgroup_rec in enumerate(rmgroup_recs):
