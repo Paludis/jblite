@@ -226,10 +226,15 @@ class Database(BaseDatabase):
                 print(u"ID: %d" % (ent_id,))
 
         # Results: character IDs
-        results = list(sorted([row[0] for row in
-                               (entries_r + entries_m + entries_n)]
-                              + entries_i))
-
+        results = []
+        for lst in (entries_r, entries_m, entries_n):
+            for row in lst:
+                if row[0] not in results:
+                    results.append(row[0])
+        for char_id in entries_i:
+            if char_id not in results:
+                results.append(char_id)
+        results = list(sorted(results))
         return results
 
     def search_by_reading(self, query):
