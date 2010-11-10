@@ -678,7 +678,6 @@ def main():
             results = db.search(search_query)
 
     if len(results) > 0:
-        from pprint import pprint
         encoding = get_encoding()
         for index, result in enumerate(results):
             index += 1

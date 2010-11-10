@@ -21,6 +21,31 @@ gettext.install("jblite")
 get_encoding = sys.getfilesystemencoding
 
 
+def convert_kunyomi(coded_str):
+    """Converts a kunyomi string with ./- to a user-friendly format.
+
+    Specifically, two things occur:
+
+    1. Strings are split on '.' and the right half, if any, is
+       enclosed in parentheses.
+
+    2. '-' is replaced with '～'.
+
+    """
+    pieces = coded_str.split(u'.', 1)
+    if len(pieces) > 1:
+        intermediate = u"".join([pieces[0], u"(", pieces[1], u")"])
+    else:
+        intermediate = pieces[0]
+    result = intermediate.replace(u"-", u"～")
+    return result
+
+def get_jouyou_str(grade_int):
+    """Converts an integer Jouyou grade code into a string."""
+    # DO LATER
+    return str(grade_int)
+
+
 class Entry(object):
 
     def __init__(self, record):
@@ -28,8 +53,72 @@ class Entry(object):
 
     def __unicode__(self):
         """Basic string representation of the entry."""
-        # *** TO DO ***
-        return unicode(self._record)
+
+        char_rec = self._record
+        lines = []
+
+        lines.append(_(u"Literal: %s") % char_rec.data["literal"])
+
+        rmgroup_recs = char_rec.find_children("rmgroup")
+        for i, rmgroup_rec in enumerate(rmgroup_recs):
+            group_index = i + 1
+            lines.append(_(u"Group %d:") % group_index)
+
+            reading_recs = rmgroup_rec.find_children("reading")
+
+            kunyomi = [r.data['value'] for r in reading_recs
+                       if r.data["type"] == "ja_kun"]
+            # kun-yomi needs ./- translated
+            kunyomi = map(convert_kunyomi, kunyomi)
+            lines.append(_(u"  Kun-yomi: %s") % u"、".join(kunyomi))
+
+            onyomi = [r.data['value'] for r in reading_recs
+                      if r.data["type"] == "ja_on"]
+            lines.append(_(u"  On-yomi: %s") % u"、".join(onyomi))
+
+            meaning_recs = rmgroup_rec.find_children("meaning")
+            meaning_d = {}
+            for r in meaning_recs:
+                meanings = meaning_d.setdefault(r.data['lang'], [])
+                meanings.append(r.data['value'])
+            for lang in sorted(meaning_d.keys()):
+                meanings = meaning_d[lang]
+                meaning_str = "; ".join(meanings)
+                lines.append(_(u"  Meanings (%s): %s") % (lang, meaning_str))
+
+        nanori_recs = char_rec.find_children("nanori")
+        if len(nanori_recs) > 0:
+            nanori = [r.data["value"] for r in nanori_recs]
+            nanori_str = u"、".join(nanori)
+            lines.append(_(u"Nanori: %s") % nanori_str)
+
+        stroke_recs = char_rec.find_children("stroke_count")
+        strokes = [r.data['count'] for r in stroke_recs]
+        if len(strokes) == 1:
+            lines.append(_(u"Stroke count: %d") % strokes[0])
+        elif len(strokes) > 1:
+            miscounts = ", ".join(map(str, strokes[1:]))
+            lines.append(_(u"Stroke count: %d (miscounts: %s)") %
+                         (strokes[0], miscounts))
+        else:
+            pass # No stroke count info; don't print anything
+
+        freq = char_rec.data["freq"]
+        if freq is not None:
+            lines.append(_(u"Frequency: %d") % freq)
+
+        grade = char_rec.data["grade"]
+        if grade is not None:
+            # Jouyou grade codes has special meanings; a conversion is
+            # needed.
+            grade_str = get_jouyou_str(grade)
+            lines.append(_(u"Jouyou grade: %s") % grade_str)
+
+        jlpt = char_rec.data["jlpt"]
+        if jlpt is not None:
+            lines.append(_(u"JLPT grade: %d") % jlpt)
+
+        return u"\n".join(lines)
 
     def __repr__(self):
         return repr(self._record)
@@ -551,12 +640,14 @@ def main():
     # Not as important; now we know we can at least do our needed
     # lookups...
     if len(results) > 0:
-        from pprint import pprint
+        encoding = get_encoding()
         # DEBUG: until lookup_by_id is implemented, this will work.
-        pprint(results)
-        for result in results:
+        for index, result in enumerate(results):
+            index += 1
+            print(_("[Entry %d]") % index)
             entry = db.lookup(result)
-            pprint(entry)
+
+            print(unicode(entry).encode(encoding))
             print()
     else:
         print(_("No results found."))

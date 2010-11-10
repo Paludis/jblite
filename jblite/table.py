@@ -42,7 +42,7 @@ class Record(object):
         """
         records = [self]
         for key in args:
-            record_lists = [record.children[key] for record in records]
+            record_lists = [record.children.get(key, []) for record in records]
             # Merge the lists into one.
             records = reduce(lambda x, y: x + y, record_lists)
         return records
