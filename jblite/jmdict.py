@@ -261,20 +261,27 @@ class Database(BaseDatabase):
 
         """
         # entry.id -> sense.fk, sense.id -> gloss.fk
-        if lang is not None:
-            query = (
-                "SELECT e.id FROM gloss g, sense s, entry e "
-                "WHERE g.lang = ? AND g.value LIKE ? "
-                "AND g.fk = s.id AND s.fk = e.id"
-            )
-            args = (lang, unicode_query)
-        else:
-            query = (
-                "SELECT e.id FROM gloss g, sense s, entry e "
-                "WHERE g.value LIKE ?"
-            )
-            args = (unicode_query,)
 
+        # FORMAT: SELECT e.id FROM gloss g, sense s, entry e
+        #         WHERE (g.lang = ? AND) g.value LIKE ?
+        #         AND g.fk = s.id AND s.fk = e.id
+        select_clause = "SELECT e.id"
+        from_clause = "FROM gloss g, sense s, entry e"
+        where_conditions = []
+        args = []
+
+        if lang is not None:
+            where_conditions.append("g.lang = ?")
+            args.append(lang)
+
+        where_conditions.append("g.value LIKE ?")
+        args.append(unicode_query)
+
+        where_conditions.append("g.fk = s.id")
+        where_conditions.append("s.fk = e.id")
+        where_clause = "WHERE %s" % " AND ".join(where_conditions)
+
+        query = " ".join([select_clause, from_clause, where_clause])
         self.cursor.execute(query, args)
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
