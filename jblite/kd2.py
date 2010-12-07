@@ -5,7 +5,7 @@ from __future__ import with_statement
 import os, sys, re, sqlite3, time
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
-from helpers import gzread
+from helpers import gzread, get_encoding, convert_query_to_unicode
 from db import Database as BaseDatabase
 from table import Table, ChildTable, KeyValueTable
 
@@ -13,12 +13,6 @@ import gettext
 #t = gettext.translation("jblite")
 #_ = t.ugettext
 gettext.install("jblite")
-
-
-# This method of getting the encoding might not be the best...
-# but it works for now, and avoids hacks with
-# setdefaultencoding.
-get_encoding = sys.getfilesystemencoding
 
 
 def convert_kunyomi(coded_str):
@@ -169,9 +163,7 @@ class Database(BaseDatabase):
             self.conn.commit()
 
     def search(self, query, lang=None, options=None):
-        encoding = get_encoding()
-        wrapped_query = "%%%s%%" % query  # Wrap in wildcards
-        unicode_query = wrapped_query.decode(encoding)
+        unicode_query = convert_query_to_unicode(query)
 
         verbose = (options is not None) and (options.verbose == True)
 

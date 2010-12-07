@@ -40,3 +40,20 @@ def do_time(fn, *args, **kwargs):
     end = time.time()
     print("do_time: Fn=%s, Time=%f" % (repr(fn), end-start))
     return result
+
+# This method of getting the encoding might not be the best...
+# but it works for now, and avoids hacks with
+# setdefaultencoding.
+#
+# If there's a better way without doing Python siteconfig stuff,
+# please let me know!  --Paul
+import sys
+get_encoding = sys.getfilesystemencoding
+
+def convert_query_to_unicode(query):
+    if isinstance(query, unicode):
+        return query
+    encoding = get_encoding()
+    wrapped_query = "%%%s%%" % query  # Wrap in wildcards
+    unicode_query = wrapped_query.decode(encoding)
+    return unicode_query
