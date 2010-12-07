@@ -229,13 +229,13 @@ class Database(BaseDatabase):
         char_ids = []
         for lst in (entries_r, entries_m, entries_n):
             for row in lst:
-                if row[0] not in results:
+                if row[0] not in char_ids:
                     char_ids.append(row[0])
         for char_id in entries_i:
-            if char_id not in results:
+            if char_id not in char_ids:
                 char_ids.append(char_id)
 
-        char_ids = list(sorted(results))
+        char_ids = list(sorted(char_ids))
 
         results = [self.lookup(char_id) for char_id in char_ids]
         return results
