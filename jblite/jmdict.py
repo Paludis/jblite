@@ -171,13 +171,14 @@ class Database(BaseDatabase):
         # 1. Guess which direction we're searching.
         # 2. Search preferred method.
         # 3. Search remaining method.
-        entries_from = self.search_from_japanese(query)
-        entries_to = self.search_to_japanese(query, lang=lang)
+        entries_from = self._search_from_japanese(query)
+        entries_to = self._search_to_japanese(query, lang=lang)
 
-        results = entries_from + entries_to
+        entry_ids = entries_from + entries_to
+        results = [self.lookup(entry_id) for entry_id in entry_ids]
         return results
 
-    def search_from_japanese(self, query):
+    def _search_from_japanese(self, query):
         # Japanese search locations:
         # 1. Kanji elements
         # 2. Reading elements
@@ -237,7 +238,7 @@ class Database(BaseDatabase):
     def _search_indices_from_ja(self, unicode_query):
         raise NotImplementedError
 
-    def search_to_japanese(self, query, lang):
+    def _search_to_japanese(self, query, lang):
         # Foreign language search locations:
         # 1. Glosses
         # 2. Any indices (none yet)
@@ -682,9 +683,8 @@ def main():
         for index, result in enumerate(results):
             index += 1
             print(_("[Entry %d]") % index)
-            entry = db.lookup(result)
 
-            print(unicode(entry).encode(encoding))
+            print(unicode(result).encode(encoding))
             print()
     else:
         print(_("No results found."))

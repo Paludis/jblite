@@ -184,11 +184,11 @@ class Database(BaseDatabase):
 
         # 1. Find by reading
 
-        entries_r = self.search_by_reading(unicode_query)
-        entries_m = self.search_by_meaning(unicode_query,
-                                           lang=lang)
-        entries_n = self.search_by_nanori(unicode_query)
-        entries_i = self.search_by_indices(unicode_query, lang=lang)
+        entries_r = self._search_by_reading(unicode_query)
+        entries_m = self._search_by_meaning(unicode_query,
+                                            lang=lang)
+        entries_n = self._search_by_nanori(unicode_query)
+        entries_i = self._search_by_indices(unicode_query, lang=lang)
 
         # DEBUG CODE
         if verbose:
@@ -225,19 +225,22 @@ class Database(BaseDatabase):
             for ent_id in entries_i:
                 print(u"ID: %d" % (ent_id,))
 
-        # Results: character IDs
-        results = []
+        # Get list of unique character IDs
+        char_ids = []
         for lst in (entries_r, entries_m, entries_n):
             for row in lst:
                 if row[0] not in results:
-                    results.append(row[0])
+                    char_ids.append(row[0])
         for char_id in entries_i:
             if char_id not in results:
-                results.append(char_id)
-        results = list(sorted(results))
+                char_ids.append(char_id)
+
+        char_ids = list(sorted(results))
+
+        results = [self.lookup(char_id) for char_id in char_ids]
         return results
 
-    def search_by_reading(self, query):
+    def _search_by_reading(self, query):
         # reading -> rmgroup -> character
         self.cursor.execute(
             "SELECT id, literal FROM character WHERE id IN "
@@ -246,7 +249,7 @@ class Database(BaseDatabase):
         rows = self.cursor.fetchall()
         return rows
 
-    def search_by_nanori(self, query):
+    def _search_by_nanori(self, query):
         # nanori -> character
         self.cursor.execute(
             "SELECT id, literal FROM character WHERE id IN "
@@ -254,7 +257,7 @@ class Database(BaseDatabase):
         rows = self.cursor.fetchall()
         return rows
 
-    def search_by_meaning(self, query, lang=None):
+    def _search_by_meaning(self, query, lang=None):
         # meaning -> rmgroup -> character
         if lang is None:
             self.cursor.execute(
@@ -270,7 +273,7 @@ class Database(BaseDatabase):
         rows = self.cursor.fetchall()
         return rows
 
-    def search_by_indices(self, query, lang=None):
+    def _search_by_indices(self, query, lang=None):
         # Get IDs from index table
         # Note: lang is currently unused.
         self.cursor.execute(
@@ -287,7 +290,8 @@ class Database(BaseDatabase):
         if len(rows) < 1:
             return None
         else:
-            return rows[0][0]
+            char_id = rows[0][0]
+            return self.lookup(char_id)
 
     def lookup(self, id):
         return BaseDatabase.lookup(self, "character", id)
@@ -657,9 +661,8 @@ def main():
         for index, result in enumerate(results):
             index += 1
             print(_("[Entry %d]") % index)
-            entry = db.lookup(result)
 
-            print(unicode(entry).encode(encoding))
+            print(unicode(result).encode(encoding))
             print()
     else:
         print(_("No results found."))
