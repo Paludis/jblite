@@ -10,10 +10,10 @@
 from __future__ import print_function
 from __future__ import with_statement
 
-import os, sys, re, sqlite3
+import os, re, sqlite3
 from cStringIO import StringIO
 from xml.etree.cElementTree import ElementTree
-from helpers import gzread
+from helpers import gzread, get_encoding, convert_query_to_unicode
 from db import Database as BaseDatabase
 from table import Table, ChildTable, KeyValueTable
 
@@ -25,9 +25,6 @@ gettext.install("jblite")
 # Full expansion of xml:lang
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
-
-# Copied from kd2.py...
-get_encoding = sys.getfilesystemencoding
 
 # FORMAT OF TABLE MAP:
 # dictionary entry: table: (children | None)
@@ -171,8 +168,10 @@ class Database(BaseDatabase):
         # 1. Guess which direction we're searching.
         # 2. Search preferred method.
         # 3. Search remaining method.
-        entries_from = self._search_from_japanese(query)
-        entries_to = self._search_to_japanese(query, lang=lang)
+        unicode_query = convert_query_to_unicode(query)
+
+        entries_from = self._search_from_japanese(unicode_query)
+        entries_to = self._search_to_japanese(unicode_query, lang=lang)
 
         entry_ids = entries_from + entries_to
         results = [self.lookup(entry_id) for entry_id in entry_ids]
@@ -193,12 +192,8 @@ class Database(BaseDatabase):
         #
         # FOR NOW: just get the searching working.
         # This puts us on roughly the same level as J-Ben 1.2.x.
-        encoding = get_encoding()
-        wrapped_query = "%%%s%%" % query  # Wrap in wildcards
-        unicode_query = wrapped_query.decode(encoding)
-
-        entries_by_keb = self._search_keb(unicode_query)
-        entries_by_reb = self._search_reb(unicode_query)
+        entries_by_keb = self._search_keb(query)
+        entries_by_reb = self._search_reb(query)
         #entries_by_indices = self._search_indices_from_ja(unicode_query)
 
         # Merge results into one list and return.
@@ -244,11 +239,7 @@ class Database(BaseDatabase):
         # 2. Any indices (none yet)
         #
         # For other considerations, see search_from_japanese().
-        encoding = get_encoding()
-        wrapped_query = "%%%s%%" % query  # Wrap in wildcards
-        unicode_query = wrapped_query.decode(encoding)
-
-        entries_by_glosses = self._search_glosses(unicode_query, lang)
+        entries_by_glosses = self._search_glosses(query, lang)
         #entries_by_indices = self._search_indices_to_ja(unicode_query, lang)
 
         # Merge results into one list and return.
