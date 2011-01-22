@@ -168,10 +168,11 @@ class Database(BaseDatabase):
         # 1. Guess which direction we're searching.
         # 2. Search preferred method.
         # 3. Search remaining method.
-        unicode_query = convert_query_to_unicode(query)
+        query = convert_query_to_unicode(query)
+        query = "%%%s%%" % query  # Wrap in wildcards
 
-        entries_from = self._search_from_japanese(unicode_query)
-        entries_to = self._search_to_japanese(unicode_query, lang=lang)
+        entries_from = self._search_from_japanese(query)
+        entries_to = self._search_to_japanese(query, lang=lang)
 
         entry_ids = entries_from + entries_to
         results = [self.lookup(entry_id) for entry_id in entry_ids]

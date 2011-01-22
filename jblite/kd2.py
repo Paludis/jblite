@@ -163,24 +163,25 @@ class Database(BaseDatabase):
             self.conn.commit()
 
     def search(self, query, lang=None, options=None):
-        unicode_query = convert_query_to_unicode(query)
+        query = convert_query_to_unicode(query)
+        query = "%%%s%%" % query  # Wrap in wildcards
 
         verbose = (options is not None) and (options.verbose == True)
 
         if verbose and os.name == "nt":
             print(u"Searching for \"%s\", lang=%s..." %
-                  (unicode_query, repr(lang)),
+                  (query, repr(lang)),
                   file=sys.stderr)
 
         # Do some search stuff here...
 
         # 1. Find by reading
 
-        entries_r = self._search_by_reading(unicode_query)
-        entries_m = self._search_by_meaning(unicode_query,
+        entries_r = self._search_by_reading(query)
+        entries_m = self._search_by_meaning(query,
                                             lang=lang)
-        entries_n = self._search_by_nanori(unicode_query)
-        entries_i = self._search_by_indices(unicode_query, lang=lang)
+        entries_n = self._search_by_nanori(query)
+        entries_i = self._search_by_indices(query, lang=lang)
 
         # DEBUG CODE
         if verbose:

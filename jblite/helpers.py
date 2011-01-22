@@ -54,6 +54,5 @@ def convert_query_to_unicode(query):
     if isinstance(query, unicode):
         return query
     encoding = get_encoding()
+    return query.decode(encoding)
     wrapped_query = "%%%s%%" % query  # Wrap in wildcards
-    unicode_query = wrapped_query.decode(encoding)
-    return unicode_query

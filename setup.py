@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 from distutils.core import setup
+from jblite import VERSION
 
 setup(name='jblite',
-      version='0.4.2',
+      version=VERSION,
       description='J-Ben SQLite parsing scripts',
       author='Paul Goins',
       author_email='general@vultaire.net',
